@@ -1,0 +1,103 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    <div class="app-bar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="{% url 'profile' %}" class="back-btn">&#8592;</a>
+            <h1>Admin Dashboard</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+    </div>
+    
+    <div class="container" style="padding-top: 24px;">
+        <!-- Stats Cards -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px;">
+            <div class="card" style="padding: 20px;">
+                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Total Users</div>
+                <div style="font-size: 32px; font-weight: 700; color: var(--primary);">{{ stats.total_users }}</div>
+            </div>
+            <div class="card" style="padding: 20px;">
+                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Total Messages</div>
+                <div style="font-size: 32px; font-weight: 700; color: var(--success);">{{ stats.total_messages }}</div>
+            </div>
+            <div class="card" style="padding: 20px;">
+                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Conversations</div>
+                <div style="font-size: 32px; font-weight: 700; color: var(--warning);">{{ stats.total_conversations }}</div>
+            </div>
+            <div class="card" style="padding: 20px;">
+                <div style="font-size: 13px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Online Users</div>
+                <div style="font-size: 32px; font-weight: 700; color: var(--accent);">{{ stats.online_users }}</div>
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+            <a href="{% url 'admin_users' %}" class="btn btn-secondary">Users</a>
+            <a href="{% url 'admin_messages' %}" class="btn btn-secondary">Messages</a>
+            <a href="{% url 'admin_conversations' %}" class="btn btn-secondary">Conversations</a>
+            <a href="{% url 'admin_logs' %}" class="btn btn-secondary">Action Logs</a>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
+            <div class="card">
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-light);">
+                    <h3 style="font-size: 16px; font-weight: 600;">Recent Users</h3>
+                </div>
+                <div style="padding: 8px;">
+                    {% for user in recent_users %}
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm);">
+                        <div class="avatar avatar-sm">{{ user.username|first|upper }}</div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 500; font-size: 14px;">{{ user.username }}</div>
+                            <div style="font-size: 12px; color: var(--text-muted);">{{ user.date_joined|date:"M d, Y" }}</div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div style="padding: 16px; text-align: center; color: var(--text-secondary); font-size: 14px;">No users yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-light);">
+                    <h3 style="font-size: 16px; font-weight: 600;">Recent Messages</h3>
+                </div>
+                <div style="padding: 8px;">
+                    {% for msg in recent_messages %}
+                    <div style="padding: 10px 12px; border-radius: var(--radius-sm);">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span style="font-weight: 500; font-size: 14px;">{{ msg.sender.username }}</span>
+                            <span style="font-size: 12px; color: var(--text-muted);">{{ msg.created_at|date:"H:i" }}</span>
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ msg.text|truncatechars:50 }}</div>
+                    </div>
+                    {% empty %}
+                    <div style="padding: 16px; text-align: center; color: var(--text-secondary); font-size: 14px;">No messages yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <div style="padding: 16px 20px; border-bottom: 1px solid var(--border-light);">
+                    <h3 style="font-size: 16px; font-weight: 600;">Admin Logs</h3>
+                </div>
+                <div style="padding: 8px;">
+                    {% for log in recent_logs %}
+                    <div style="padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px;">
+                        <span style="font-weight: 500;">{{ log.admin_user.username }}</span>
+                        <span style="color: var(--text-secondary);">{{ log.action_type }}</span>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">{{ log.created_at|date:"M d, H:i" }}</div>
+                    </div>
+                    {% empty %}
+                    <div style="padding: 16px; text-align: center; color: var(--text-secondary); font-size: 14px;">No admin actions yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

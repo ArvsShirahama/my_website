@@ -1,0 +1,561 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}{{ other_user.username }}{% endblock %}
+
+{% block extra_css %}
+.messages-area { padding: 16px; display: flex; flex-direction: column; gap: 8px; min-height: calc(100vh - 140px); overflow-y: auto; }
+.msg { max-width: 75%; display: flex; flex-direction: column; gap: 2px; animation: fadeIn 0.3s ease; }
+.msg-me { align-self: flex-end; }
+.msg-other { align-self: flex-start; }
+.msg-bubble { padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.4; word-wrap: break-word; }
+.msg-me .msg-bubble { background: var(--msg-me); color: var(--msg-me-text); border-bottom-right-radius: 4px; }
+.msg-other .msg-bubble { background: var(--msg-other); color: var(--msg-other-text); border-bottom-left-radius: 4px; }
+.msg-time { font-size: 11px; color: var(--text-muted); padding: 0 4px; }
+.msg-attachment { max-width: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
+.msg-attachment img { width: 100%; display: block; border-radius: 12px; }
+.msg-attachment video { width: 100%; display: block; border-radius: 12px; }
+.input-area { position: sticky; bottom: 0; padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--border-light); display: flex; gap: 8px; align-items: center; }
+.input-area input[type="text"] { flex: 1; border-radius: 24px; padding: 10px 16px; font-size: 15px; }
+.attach-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--surface-hover); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; flex-shrink: 0; }
+.send-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+.typing { font-size: 12px; color: var(--text-muted); padding: 4px 16px; font-style: italic; }
+.back-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; text-decoration: none; }
+.cam-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--surface-hover); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; flex-shrink: 0; }
+.camera-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
+.camera-overlay.active { display: flex; }
+.camera-video { width: 100%; height: 100%; object-fit: cover; }
+.camera-top-bar { position: absolute; top: 0; left: 0; right: 0; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; z-index: 10; }
+.camera-mode-bar { display: flex; gap: 8px; background: rgba(0,0,0,0.4); backdrop-filter: blur(12px); padding: 4px; border-radius: 24px; }
+.camera-mode-btn { border: none; background: transparent; color: rgba(255,255,255,0.6); padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.camera-mode-btn.active { background: rgba(255,255,255,0.25); color: #fff; }
+.camera-close { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); }
+.camera-countdown { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 120px; font-weight: 800; color: #fff; text-shadow: 0 0 40px rgba(0,0,0,0.5); display: none; z-index: 5; }
+.camera-controls { position: absolute; bottom: 40px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 0 32px; }
+.camera-timer-bar { display: flex; gap: 8px; }
+.camera-timer-btn { border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); color: #fff; padding: 6px 14px; border-radius: 16px; font-size: 12px; font-weight: 600; cursor: pointer; backdrop-filter: blur(8px); transition: all 0.2s; }
+.camera-timer-btn.active { background: #fff; color: #000; border-color: #fff; }
+.camera-shutter-row { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 320px; }
+.camera-switch { width: 48px; height: 48px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); }
+.camera-shutter { width: 72px; height: 72px; border-radius: 50%; border: 4px solid #fff; background: transparent; cursor: pointer; position: relative; }
+.camera-shutter::after { content: ''; position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px; border-radius: 50%; background: #fff; }
+.camera-shutter.recording::after { background: #EF4444; animation: pulseRec 1s infinite; }
+@keyframes pulseRec { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.camera-timer-display { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 14px; font-weight: 600; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 20px; display: none; }
+.camera-video-row { display: flex; align-items: center; gap: 20px; }
+.cam-vid-btn { border: none; color: #fff; font-size: 13px; font-weight: 600; padding: 10px 24px; border-radius: 24px; cursor: pointer; backdrop-filter: blur(8px); }
+.cam-vid-start { background: #EF4444; }
+.cam-vid-pause { background: rgba(255,255,255,0.2); }
+.cam-vid-stop { background: rgba(255,255,255,0.2); }
+.preview-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1001; flex-direction: column; }
+.preview-overlay.active { display: flex; }
+.preview-media { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.preview-media img, .preview-media video { max-width: 100%; max-height: 100%; border-radius: var(--radius-md); object-fit: contain; }
+.preview-actions { display: flex; gap: 12px; padding: 16px; justify-content: center; }
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; height: 100vh;">
+    <div class="app-bar">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+            <a href="{% url 'chat_list' %}" class="back-btn">&#8592;</a>
+            <div class="avatar avatar-sm">
+                {% if other_profile and other_profile.avatar %}
+                <img src="{{ other_profile.avatar.url }}" alt="">
+                {% else %}
+                {{ other_user.username|first|upper }}
+                {% endif %}
+            </div>
+            <div>
+                <div style="font-weight: 600; font-size: 15px;">{{ other_user.username }}</div>
+                <div style="font-size: 12px; color: var(--text-muted);">
+                    {% if other_profile and other_profile.is_online %}online{% else %}offline{% endif %}
+                </div>
+            </div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+    </div>
+    
+    <div class="messages-area" id="messagesArea">
+        {% for msg in messages %}
+        <div class="msg {% if msg.sender == request.user %}msg-me{% else %}msg-other{% endif %}" data-id="{{ msg.id }}">
+            {% if msg.attachment %}
+            <div class="msg-attachment">
+                {% if msg.attachment.attachment_type == 'image' %}
+                <img src="{{ msg.attachment.file.url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
+                {% else %}
+                <video controls src="{{ msg.attachment.file.url }}"></video>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% if msg.text %}
+            <div class="msg-bubble">{{ msg.text }}</div>
+            {% endif %}
+            <div class="msg-time">{{ msg.created_at|date:"H:i" }}{% if msg.sender == request.user %} {% if msg.is_read %}&#10003;{% else %}&#10003;{% endif %}{% endif %}</div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <div class="empty-icon">&#9997;</div>
+            <div class="empty-title">Start chatting</div>
+            <div class="empty-desc">Send your first message below</div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="typing" id="typingIndicator" style="display: none;"></div>
+    
+    <form class="input-area" id="messageForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+        <button type="button" class="cam-btn" id="camBtn" title="Open camera">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
+                <circle cx="12" cy="13" r="3"></circle>
+            </svg>
+        </button>
+        <label class="attach-btn" title="Attach file">
+            <input type="file" name="file" accept="image/*,video/*" style="display: none;" onchange="document.getElementById('fileName').textContent = this.files[0]?.name || '';">
+            &#128206;
+        </label>
+        <input type="text" name="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+        <span id="fileName" style="font-size: 12px; color: var(--text-muted); max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+        <button type="submit" class="send-btn">&#10148;</button>
+    </form>
+</div>
+
+<!-- Camera Overlay -->
+<div class="camera-overlay" id="cameraOverlay">
+    <video class="camera-video" id="cameraVideo" autoplay playsinline muted></video>
+    <div class="camera-countdown" id="camCountdown"></div>
+    <div class="camera-timer-display" id="camTimerDisplay">00:00</div>
+
+    <div class="camera-top-bar">
+        <div class="camera-mode-bar">
+            <button class="camera-mode-btn active" id="modePhoto" data-mode="photo">Photo</button>
+            <button class="camera-mode-btn" id="modeVideo" data-mode="video">Video</button>
+        </div>
+        <button class="camera-close" id="camClose">&#10005;</button>
+    </div>
+
+    <div class="camera-controls">
+        <!-- Photo controls -->
+        <div class="camera-timer-bar" id="photoControls">
+            <button class="camera-timer-btn active" data-timer="0">None</button>
+            <button class="camera-timer-btn" data-timer="3">3s</button>
+            <button class="camera-timer-btn" data-timer="5">5s</button>
+            <button class="camera-timer-btn" data-timer="10">10s</button>
+        </div>
+
+        <!-- Video controls -->
+        <div class="camera-video-row" id="videoControls" style="display: none;">
+            <button class="cam-vid-btn cam-vid-start" id="vidStart">&#9679; Record</button>
+            <button class="cam-vid-btn cam-vid-pause" id="vidPause" style="display: none;">&#10074;&#10074; Pause</button>
+            <button class="cam-vid-btn cam-vid-stop" id="vidStop" style="display: none;">&#9632; Stop</button>
+        </div>
+
+        <div class="camera-shutter-row">
+            <button class="camera-switch" id="camSwitch">&#8646;</button>
+            <button class="camera-shutter" id="camShutter"></button>
+            <div style="width: 48px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Overlay -->
+<div class="preview-overlay" id="previewOverlay">
+    <div class="preview-media" id="previewMedia"></div>
+    <div class="preview-actions">
+        <button class="btn btn-secondary" id="previewRetake" style="min-width: 120px;">&#8634; Retake</button>
+        <button class="btn" id="previewSend" style="min-width: 120px;">&#10148; Send</button>
+    </div>
+</div>
+
+<script>
+const messagesArea = document.getElementById('messagesArea');
+const messageForm = document.getElementById('messageForm');
+const messageInput = document.getElementById('messageInput');
+const conversationId = '{{ conversation.id }}';
+let lastMessageId = '{{ messages.last.id }}';
+
+// Scroll to bottom
+messagesArea.scrollTop = messagesArea.scrollHeight;
+
+// Send message
+messageForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    if (!formData.get('text').trim() && !formData.get('file').size) return;
+    
+    // Add optimistic message
+    const text = formData.get('text');
+    if (text) {
+        appendMessage(text, true, null, true);
+        messageInput.value = '';
+    }
+    
+    try {
+        const response = await fetch(`/chat/api/send/${conversationId}/`, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const data = await response.json();
+        if (data.id) lastMessageId = data.id;
+    } catch (err) {
+        console.error('Send failed:', err);
+    }
+    
+    document.querySelector('[name=file]').value = '';
+    document.getElementById('fileName').textContent = '';
+});
+
+function appendMessage(text, isMe, attachment, isOptimistic) {
+    const div = document.createElement('div');
+    div.className = `msg ${isMe ? 'msg-me' : 'msg-other'}`;
+    
+    let html = '';
+    if (attachment) {
+        if (attachment.type === 'image') {
+            html += `<div class="msg-attachment"><img src="${attachment.url}" alt=""></div>`;
+        } else {
+            html += `<div class="msg-attachment"><video controls src="${attachment.url}"></video></div>`;
+        }
+    }
+    if (text) html += `<div class="msg-bubble">${escapeHtml(text)}</div>`;
+    html += `<div class="msg-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}${isMe ? ' <span>&#10003;</span>' : ''}</div>`;
+    
+    div.innerHTML = html;
+    messagesArea.appendChild(div);
+    messagesArea.scrollTop = messagesArea.scrollHeight;
+    
+    // Remove empty state if exists
+    const empty = messagesArea.querySelector('.empty-state');
+    if (empty) empty.remove();
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Polling for new messages
+async function pollMessages() {
+    try {
+        const url = `/chat/api/messages/${conversationId}/?last_id=${lastMessageId || ''}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.messages && data.messages.length > 0) {
+            data.messages.forEach(msg => {
+                if (!document.querySelector(`[data-id="${msg.id}"]`)) {
+                    appendMessage(msg.text, msg.is_me, msg.attachment, false);
+                    lastMessageId = msg.id;
+                }
+            });
+        }
+    } catch (err) {
+        console.error('Poll failed:', err);
+    }
+}
+
+// Poll every 3 seconds
+setInterval(pollMessages, 3000);
+
+// ===== Camera Feature =====
+const camOverlay = document.getElementById('cameraOverlay');
+const camVideo = document.getElementById('cameraVideo');
+const camShutter = document.getElementById('camShutter');
+const camClose = document.getElementById('camClose');
+const camSwitch = document.getElementById('camSwitch');
+const camCountdown = document.getElementById('camCountdown');
+const camTimerDisplay = document.getElementById('camTimerDisplay');
+const modePhoto = document.getElementById('modePhoto');
+const modeVideo = document.getElementById('modeVideo');
+const photoControls = document.getElementById('photoControls');
+const videoControls = document.getElementById('videoControls');
+const vidStart = document.getElementById('vidStart');
+const vidPause = document.getElementById('vidPause');
+const vidStop = document.getElementById('vidStop');
+const previewOverlay = document.getElementById('previewOverlay');
+const previewMedia = document.getElementById('previewMedia');
+const previewRetake = document.getElementById('previewRetake');
+const previewSend = document.getElementById('previewSend');
+
+let camStream = null;
+let facingMode = 'environment';
+let currentMode = 'photo';
+let photoTimerSec = 0;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordTimer = null;
+let recordStartTime = 0;
+let isRecording = false;
+let isPaused = false;
+let capturedBlob = null;
+let capturedType = null;
+let countdownTimer = null;
+
+// Open camera
+document.getElementById('camBtn').addEventListener('click', async () => {
+    console.log('Camera button clicked');
+    try {
+        camOverlay.classList.add('active');
+        console.log('Overlay active, starting camera...');
+        setMode('photo');
+        await startCamera();
+        console.log('Camera started successfully');
+    } catch (err) {
+        console.error('Camera error:', err);
+        alert('Could not access camera. Please allow camera permissions. Error: ' + err.message);
+        closeCamera();
+    }
+});
+
+async function startCamera() {
+    const useAudio = currentMode === 'video';
+    const constraints = {
+        video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: useAudio
+    };
+    camStream = await navigator.mediaDevices.getUserMedia(constraints);
+    camVideo.srcObject = camStream;
+}
+
+function closeCamera() {
+    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+    stopRecordingCleanup();
+    camOverlay.classList.remove('active');
+    camCountdown.style.display = 'none';
+    camCountdown.textContent = '';
+}
+
+camClose.addEventListener('click', closeCamera);
+
+// Switch camera
+camSwitch.addEventListener('click', async () => {
+    if (!camStream) return;
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    camStream.getTracks().forEach(t => t.stop());
+    await startCamera();
+});
+
+// Mode switching
+function setMode(mode) {
+    currentMode = mode;
+    if (mode === 'photo') {
+        modePhoto.classList.add('active');
+        modeVideo.classList.remove('active');
+        photoControls.style.display = 'flex';
+        videoControls.style.display = 'none';
+        camShutter.style.display = '';
+        camTimerDisplay.style.display = 'none';
+        stopRecordingCleanup();
+    } else {
+        modePhoto.classList.remove('active');
+        modeVideo.classList.add('active');
+        photoControls.style.display = 'none';
+        videoControls.style.display = 'flex';
+        camShutter.style.display = 'none';
+        vidStart.style.display = '';
+        vidPause.style.display = 'none';
+        vidStop.style.display = 'none';
+    }
+}
+
+modePhoto.addEventListener('click', () => { if (currentMode !== 'photo') setMode('photo'); });
+modeVideo.addEventListener('click', () => { if (currentMode !== 'video') setMode('video'); });
+
+// Photo timer selection
+photoControls.querySelectorAll('.camera-timer-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        photoControls.querySelectorAll('.camera-timer-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        photoTimerSec = parseInt(btn.dataset.timer);
+    });
+});
+
+// Photo capture with countdown
+camShutter.addEventListener('click', () => {
+    if (currentMode !== 'photo') return;
+    if (photoTimerSec > 0) {
+        camShutter.disabled = true;
+        let remaining = photoTimerSec;
+        camCountdown.style.display = 'block';
+        camCountdown.textContent = remaining;
+        countdownTimer = setInterval(() => {
+            remaining--;
+            if (remaining > 0) {
+                camCountdown.textContent = remaining;
+            } else {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+                camCountdown.style.display = 'none';
+                camShutter.disabled = false;
+                doCapturePhoto();
+            }
+        }, 1000);
+    } else {
+        doCapturePhoto();
+    }
+});
+
+function doCapturePhoto() {
+    const canvas = document.createElement('canvas');
+    canvas.width = camVideo.videoWidth || 1280;
+    canvas.height = camVideo.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (facingMode === 'user') { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(camVideo, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+        capturedBlob = blob;
+        capturedType = 'image';
+        closeCamera();
+        showPreview(URL.createObjectURL(blob), 'image');
+    }, 'image/jpeg', 0.92);
+}
+
+// Video controls
+vidStart.addEventListener('click', async () => {
+    if (isRecording) return;
+    isRecording = true;
+    isPaused = false;
+    recordedChunks = [];
+    camTimerDisplay.style.display = 'block';
+    vidStart.style.display = 'none';
+    vidPause.style.display = '';
+    vidPause.textContent = '|| Pause';
+    vidStop.style.display = '';
+
+    if (camStream) camStream.getTracks().forEach(t => t.stop());
+    const constraints = {
+        video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true
+    };
+    camStream = await navigator.mediaDevices.getUserMedia(constraints);
+    camVideo.srcObject = camStream;
+
+    let mimeType = 'video/webm;codecs=vp9';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm;codecs=vp8';
+    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+
+    const options = { mimeType: mimeType, videoBitsPerSecond: 2000000 };
+    mediaRecorder = new MediaRecorder(camStream, options);
+
+    mediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        capturedBlob = blob;
+        capturedType = 'video';
+        closeCamera();
+        showPreview(URL.createObjectURL(blob), 'video');
+    };
+
+    mediaRecorder.start(100);
+
+    recordStartTime = Date.now();
+    recordTimer = setInterval(() => {
+        if (isPaused) return;
+        const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+        const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const s = String(elapsed % 60).padStart(2, '0');
+        camTimerDisplay.textContent = `${m}:${s}`;
+    }, 500);
+});
+
+vidPause.addEventListener('click', () => {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+    if (isPaused) {
+        mediaRecorder.resume();
+        isPaused = false;
+        vidPause.textContent = '|| Pause';
+    } else {
+        mediaRecorder.pause();
+        isPaused = true;
+        vidPause.textContent = '▶ Resume';
+    }
+});
+
+vidStop.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+    }
+    stopRecordingCleanup();
+});
+
+function stopRecordingCleanup() {
+    isRecording = false;
+    isPaused = false;
+    if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
+    camTimerDisplay.style.display = 'none';
+    camTimerDisplay.textContent = '00:00';
+    if (currentMode === 'video') {
+        vidStart.style.display = '';
+        vidPause.style.display = 'none';
+        vidStop.style.display = 'none';
+        vidPause.textContent = '|| Pause';
+    }
+}
+
+function showPreview(url, type) {
+    previewMedia.innerHTML = '';
+    if (type === 'image') {
+        const img = document.createElement('img');
+        img.src = url;
+        previewMedia.appendChild(img);
+    } else {
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.autoplay = true;
+        previewMedia.appendChild(video);
+    }
+    previewOverlay.classList.add('active');
+}
+
+function hidePreview() {
+    previewOverlay.classList.remove('active');
+    capturedBlob = null;
+    capturedType = null;
+}
+
+previewRetake.addEventListener('click', () => {
+    hidePreview();
+    camOverlay.classList.add('active');
+    setMode(currentMode);
+    startCamera().catch(() => {});
+});
+
+previewSend.addEventListener('click', async () => {
+    if (!capturedBlob) return;
+    const ext = capturedType === 'image' ? '.jpg' : '.webm';
+    const filename = `capture_${Date.now()}${ext}`;
+    const file = new File([capturedBlob], filename, { type: capturedBlob.type });
+
+    const formData = new FormData(messageForm);
+    formData.set('file', file);
+
+    const attachment = {
+        type: capturedType,
+        url: URL.createObjectURL(capturedBlob)
+    };
+    appendMessage('', true, attachment, true);
+    hidePreview();
+
+    try {
+        const response = await fetch('/chat/api/send/' + conversationId + '/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const data = await response.json();
+        if (data.id) lastMessageId = data.id;
+    } catch (err) {
+        console.error('Send failed:', err);
+    }
+});</script>
+{% endblock %}

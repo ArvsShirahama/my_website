@@ -1,0 +1,73 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+    <div class="app-bar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="{% url 'chat_list' %}" class="back-btn">&#8592;</a>
+            <h1>Profile</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+    </div>
+    
+    <div class="container" style="padding-top: 24px;">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div style="position: relative; display: inline-block;">
+                <div class="avatar avatar-lg" style="width: 80px; height: 80px; font-size: 32px; border: 3px solid var(--primary);">
+                    {% if profile and profile.avatar %}
+                    <img src="{{ profile.avatar.url }}" alt="">
+                    {% else %}
+                    {{ user.username|first|upper }}
+                    {% endif %}
+                </div>
+                <label style="position: absolute; bottom: 0; right: 0; width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: #fff;">
+                    <input type="file" name="avatar" form="profileForm" accept="image/*" style="display: none;">
+                    &#9998;
+                </label>
+            </div>
+            <h2 style="font-size: 20px; font-weight: 600; margin-top: 12px;">{{ user.username }}</h2>
+            <p style="color: var(--text-secondary); font-size: 14px;">{{ user.email }}</p>
+            <div style="margin-top: 8px; display: flex; gap: 8px; justify-content: center; align-items: center;">
+                <span style="font-size: 12px; color: var(--text-muted); padding: 2px 8px; border-radius: 12px; background: var(--surface-hover);">{% if profile and profile.is_online %}&#128994; Online{% else %}&#9899; Offline{% endif %}</span>
+            </div>
+        </div>
+        
+        <form id="profileForm" method="post" enctype="multipart/form-data" class="card" style="padding: 24px;">
+            {% csrf_token %}
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">First Name</label>
+                <input type="text" name="first_name" value="{{ user.first_name }}" placeholder="First name">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Last Name</label>
+                <input type="text" name="last_name" value="{{ user.last_name }}" placeholder="Last name">
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Bio</label>
+                <textarea name="bio" rows="3" placeholder="Tell us about yourself">{{ profile.bio|default:'' }}</textarea>
+            </div>
+            <div style="margin-bottom: 24px;">
+                <label style="display: block; font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Theme Preference</label>
+                <select name="theme">
+                    <option value="system" {% if profile.theme_preference == 'system' %}selected{% endif %}>System Default</option>
+                    <option value="light" {% if profile.theme_preference == 'light' %}selected{% endif %}>Light</option>
+                    <option value="dark" {% if profile.theme_preference == 'dark' %}selected{% endif %}>Dark</option>
+                </select>
+            </div>
+            <button type="submit" style="width: 100%;">Save Changes</button>
+        </form>
+        
+        <div style="margin-top: 24px;">
+            <a href="{% url 'logout' %}" class="btn btn-danger" style="width: 100%;">Logout</a>
+        </div>
+        
+        {% if user.is_staff or user.is_superuser %}
+        <div style="margin-top: 16px;">
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary" style="width: 100%;">Admin Dashboard</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

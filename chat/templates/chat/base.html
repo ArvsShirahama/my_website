@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="{% if request.user.profile.theme_preference != 'system' %}{{ request.user.profile.theme_preference }}{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}Chat{% endblock %}</title>
+    {% csrf_token %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #F9FAFB;
+            --surface: #FFFFFF;
+            --surface-hover: #F3F4F6;
+            --text: #111827;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --accent: #3B82F6;
+            --border: #E5E7EB;
+            --border-light: #F3F4F6;
+            --error: #EF4444;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --msg-me: #2563EB;
+            --msg-me-text: #FFFFFF;
+            --msg-other: #F3F4F6;
+            --msg-other-text: #111827;
+            --online: #10B981;
+        }
+        
+        [data-theme="dark"] {
+            --bg: #121212;
+            --surface: #1E1E1E;
+            --surface-hover: #2D2D2D;
+            --text: #E5E7EB;
+            --text-secondary: #9CA3AF;
+            --text-muted: #6B7280;
+            --primary: #3B82F6;
+            --primary-hover: #60A5FA;
+            --accent: #60A5FA;
+            --border: #374151;
+            --border-light: #2D2D2D;
+            --error: #EF4444;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4);
+            --msg-me: #3B82F6;
+            --msg-me-text: #FFFFFF;
+            --msg-other: #2D2D2D;
+            --msg-other-text: #E5E7EB;
+            --online: #10B981;
+        }
+        
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
+        }
+        
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { opacity: 0.85; }
+        
+        button, .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: var(--font);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--primary);
+            color: #fff;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        button:hover, .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        button:active, .btn:active { transform: scale(0.98); }
+        button:disabled, .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--surface-hover); }
+        
+        .btn-danger { background: var(--error); }
+        .btn-danger:hover { background: #DC2626; }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 15px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        textarea { resize: vertical; min-height: 80px; }
+        
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-light);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        
+        .app-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border-light);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .app-bar h1 { font-size: 18px; font-weight: 600; }
+        
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            flex-shrink: 0;
+            overflow: hidden;
+            object-fit: cover;
+        }
+        
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .avatar-lg { width: 56px; height: 56px; font-size: 18px; }
+        .avatar-sm { width: 32px; height: 32px; font-size: 12px; }
+        
+        .online-indicator {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 12px;
+            height: 12px;
+            background: var(--online);
+            border-radius: 50%;
+            border: 2px solid var(--surface);
+        }
+        
+        .error { color: var(--error); font-size: 13px; margin-top: 4px; }
+        .success { color: var(--success); font-size: 13px; margin-top: 4px; }
+        
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: var(--surface-hover);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            padding: 0;
+            transition: transform 0.3s ease;
+        }
+        .theme-toggle:hover { transform: rotate(180deg); }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in { animation: fadeIn 0.3s ease; }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        
+        .slide-in { animation: slideIn 0.3s ease; }
+        
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            button, .btn { padding: 12px 20px; font-size: 15px; }
+            input, textarea { padding: 14px 16px; }
+        }
+        
+        @media (prefers-color-scheme: dark) {
+            html:not([data-theme="light"]) {
+                --bg: #121212;
+                --surface: #1E1E1E;
+                --surface-hover: #2D2D2D;
+                --text: #E5E7EB;
+                --text-secondary: #9CA3AF;
+                --text-muted: #6B7280;
+                --primary: #3B82F6;
+                --primary-hover: #60A5FA;
+                --accent: #60A5FA;
+                --border: #374151;
+                --border-light: #2D2D2D;
+                --msg-me: #3B82F6;
+                --msg-me-text: #FFFFFF;
+                --msg-other: #2D2D2D;
+                --msg-other-text: #E5E7EB;
+            }
+        }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    {% block content %}{% endblock %}
+    
+    <script>
+        // Theme toggle
+        (function() {
+            const html = document.documentElement;
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            function setTheme(theme) {
+                if (theme === 'system') {
+                    html.removeAttribute('data-theme');
+                } else {
+                    html.setAttribute('data-theme', theme);
+                }
+                localStorage.setItem('theme', theme);
+            }
+            
+            window.toggleTheme = function() {
+                const current = html.getAttribute('data-theme') || (prefersDark ? 'dark' : 'light');
+                const next = current === 'dark' ? 'light' : 'dark';
+                setTheme(next);
+            };
+            
+            window.setTheme = setTheme;
+            
+            // Initialize
+            if (saved && saved !== 'system') {
+                setTheme(saved);
+            }
+        })();
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

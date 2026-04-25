@@ -1,0 +1,77 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Admin - Messages{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <div class="app-bar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="{% url 'admin_dashboard' %}" class="back-btn">&#8592;</a>
+            <h1>Messages</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+    </div>
+    
+    <div class="container" style="padding-top: 24px;">
+        <div class="card" style="overflow: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-light);">
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">ID</th>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Sender</th>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Content</th>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Time</th>
+                        <th style="padding: 12px 16px; text-align: right; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for msg in messages %}
+                    <tr style="border-bottom: 1px solid var(--border-light);" id="msg-row-{{ msg.id }}">
+                        <td style="padding: 12px 16px; font-size: 12px; color: var(--text-muted); font-family: monospace;">{{ msg.id|slice:":8" }}</td>
+                        <td style="padding: 12px 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div class="avatar" style="width: 28px; height: 28px; font-size: 11px;">{{ msg.sender.username|first|upper }}</div>
+                                <span style="font-weight: 500; font-size: 13px;">{{ msg.sender.username }}</span>
+                            </div>
+                        </td>
+                        <td style="padding: 12px 16px; max-width: 300px;">
+                            {% if msg.attachment %}
+                            <span style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px;">
+                                [{{ msg.attachment.attachment_type }}] {{ msg.attachment.filename }}
+                            </span>
+                            {% endif %}
+                            <div style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ msg.text|truncatechars:50|default:"(no text)" }}</div>
+                        </td>
+                        <td style="padding: 12px 16px; font-size: 12px; color: var(--text-muted); white-space: nowrap;">{{ msg.created_at|date:"M d, H:i" }}</td>
+                        <td style="padding: 12px 16px; text-align: right;">
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" data-msg-id="{{ msg.id }}" onclick="deleteMessage(this.dataset.msgId)">Delete</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-secondary);">No messages found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+async function deleteMessage(msgId) {
+    if (!confirm('Delete this message?')) return;
+    try {
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const response = await fetch(`/chat/admin/api/delete-message/${msgId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById(`msg-row-${msgId}`).remove();
+        }
+    } catch (err) {
+        alert('Failed to delete message');
+    }
+}
+</script>
+{% endblock %}
