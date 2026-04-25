@@ -1,0 +1,345 @@
+{% extends "admin/login.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    :root {
+        --primary-color: #4f46e5;
+        --primary-hover: #4338ca;
+        --secondary-color: #64748b;
+        --success-color: #10b981;
+        --danger-color: #ef4444;
+        --warning-color: #f59e0b;
+        --background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        --surface: rgba(255, 255, 255, 0.95);
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --border-color: #e2e8f0;
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+        --radius: 0.75rem;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: var(--background);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        padding: 2rem;
+        color: var(--text-primary);
+    }
+
+    .login-container {
+        background: var(--surface);
+        backdrop-filter: blur(10px);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-xl);
+        padding: 3rem;
+        width: 100%;
+        max-width: 400px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .login-header h1 {
+        color: var(--text-primary);
+        font-size: 1.875rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .login-header p {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    .login-form {
+        width: 100%;
+    }
+
+    .form-row {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-row label {
+        display: block;
+        color: var(--text-primary);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .form-row input {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.8);
+        font-size: 1rem;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+
+    .form-row input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        background: white;
+    }
+
+    .form-row input::placeholder {
+        color: var(--text-secondary);
+    }
+
+    .submit-row {
+        margin-top: 2rem;
+        text-align: center;
+    }
+
+    .submit-row input[type="submit"] {
+        width: 100%;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: var(--radius);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: var(--shadow-md);
+    }
+
+    .submit-row input[type="submit"]:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .submit-row input[type="submit"]:active {
+        transform: translateY(0);
+    }
+
+    .password-reset-link {
+        text-align: center;
+        margin-top: 1.5rem;
+    }
+
+    .password-reset-link a {
+        color: var(--primary-color);
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .password-reset-link a:hover {
+        text-decoration: underline;
+    }
+
+    .errornote {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+        padding: 1rem;
+        border-radius: var(--radius);
+        border-left: 4px solid var(--danger-color);
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+    }
+
+    .message {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success-color);
+        padding: 1rem;
+        border-radius: var(--radius);
+        border-left: 4px solid var(--success-color);
+        margin-bottom: 1.5rem;
+        font-size: 0.875rem;
+    }
+
+    .login-footer {
+        text-align: center;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .login-footer p {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        margin: 0;
+    }
+
+    /* Hide default Django admin elements */
+    #header {
+        display: none;
+    }
+
+    .breadcrumbs {
+        display: none;
+    }
+
+    .container {
+        background: none;
+        box-shadow: none;
+        border: none;
+        padding: 0;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 640px) {
+        body {
+            padding: 1rem;
+        }
+
+        .login-container {
+            padding: 2rem;
+        }
+
+        .login-header h1 {
+            font-size: 1.5rem;
+        }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --surface: rgba(30, 41, 59, 0.95);
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+
+        .form-row input {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-primary);
+        }
+
+        .form-row input:focus {
+            background: rgba(30, 41, 59, 0.95);
+        }
+    }
+
+    /* Loading animation */
+    .submit-row input[type="submit"]:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .submit-row input[type="submit"]:disabled::after {
+        content: "";
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        margin-left: 8px;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-header">
+        <h1>Admin Login</h1>
+        <p>Enter your credentials to access the admin panel</p>
+    </div>
+
+    {% if form.errors %}
+        <div class="errornote">
+            {% if form.errors.items|length == 1 %}
+                Please correct the error below.
+            {% else %}
+                Please correct the errors below.
+            {% endif %}
+        </div>
+    {% endif %}
+
+    {% if user.is_authenticated %}
+        <div class="message">
+            You are already logged in as {{ user.username }}.
+        </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'admin:login' %}" class="login-form">
+        {% csrf_token %}
+        
+        <div class="form-row">
+            {{ form.username.errors }}
+            <label for="id_username">Username</label>
+            <input type="text" name="username" id="id_username" autofocus maxlength="150" autocapitalize="none" autocomplete="username" required placeholder="Enter your username">
+        </div>
+
+        <div class="form-row">
+            {{ form.password.errors }}
+            <label for="id_password">Password</label>
+            <input type="password" name="password" id="id_password" autocomplete="current-password" required placeholder="Enter your password">
+        </div>
+
+        <div class="submit-row">
+            <input type="submit" value="Sign in">
+        </div>
+
+        <input type="hidden" name="next" value="{{ next }}">
+    </form>
+
+    <div class="password-reset-link">
+        <a href="{% url 'admin_password_reset' %}">Forgot your password?</a>
+    </div>
+
+    <div class="login-footer">
+        <p>Django Admin Panel • Secure Login</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('.login-form');
+    const submitButton = form.querySelector('input[type="submit"]');
+    
+    form.addEventListener('submit', function() {
+        submitButton.disabled = true;
+        submitButton.value = 'Signing in...';
+    });
+
+    // Auto-focus username field
+    const usernameField = document.getElementById('id_username');
+    if (usernameField) {
+        usernameField.focus();
+    }
+
+    // Add input validation feedback
+    const inputs = form.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value.trim() === '') {
+                this.style.borderColor = 'var(--danger-color)';
+            } else {
+                this.style.borderColor = 'var(--success-color)';
+            }
+        });
+
+        input.addEventListener('focus', function() {
+            this.style.borderColor = 'var(--primary-color)';
+        });
+    });
+});
+</script>
+{% endblock %}
