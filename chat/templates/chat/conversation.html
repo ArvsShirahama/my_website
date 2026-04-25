@@ -51,6 +51,38 @@
 .preview-media { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .preview-media img, .preview-media video { max-width: 100%; max-height: 100%; border-radius: var(--radius-md); object-fit: contain; }
 .preview-actions { display: flex; gap: 12px; padding: 16px; justify-content: center; }
+
+/* Media Viewer */
+.media-viewer { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
+.media-viewer.active { display: flex; }
+.media-viewer img { max-width: 95%; max-height: 90%; object-fit: contain; border-radius: 8px; cursor: zoom-in; transition: transform 0.3s ease; }
+.media-viewer img.zoomed { cursor: zoom-out; transform: scale(1.5); }
+.media-viewer video { max-width: 95%; max-height: 90%; border-radius: 8px; }
+.media-viewer-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); z-index: 10; }
+.media-viewer-download { position: absolute; bottom: 24px; right: 16px; padding: 10px 20px; border-radius: 24px; border: none; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+/* Message action menu */
+.msg { position: relative; }
+.msg-attachment { cursor: pointer; }
+.msg-actions { display: none; position: absolute; top: 50%; transform: translateY(-50%); z-index: 50; background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 4px; min-width: 160px; }
+.msg-me .msg-actions { left: auto; right: calc(100% + 8px); }
+.msg-other .msg-actions { left: calc(100% + 8px); right: auto; }
+.msg-actions.active { display: block; }
+.msg-actions button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 14px; border: none; background: transparent; color: var(--text); font-size: 14px; cursor: pointer; border-radius: 8px; text-align: left; }
+.msg-actions button:hover { background: var(--surface-hover); }
+.msg-actions button.delete-btn { color: #EF4444; }
+
+/* Delete Modal */
+.delete-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 3000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.delete-modal.active { display: flex; }
+.delete-box { background: var(--surface); border-radius: var(--radius-lg); padding: 24px; max-width: 320px; width: 90%; text-align: center; }
+.delete-box h3 { margin: 0 0 8px; font-size: 18px; }
+.delete-box p { margin: 0 0 20px; color: var(--text-muted); font-size: 14px; }
+.delete-options { display: flex; flex-direction: column; gap: 8px; }
+.delete-options button { padding: 12px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--surface); color: var(--text); font-size: 14px; cursor: pointer; }
+.delete-options button:hover { background: var(--surface-hover); }
+.delete-options button.danger { border-color: #EF4444; color: #EF4444; }
+.delete-options button.danger:hover { background: rgba(239,68,68,0.1); }
 {% endblock %}
 
 {% block content %}
@@ -77,9 +109,9 @@
     
     <div class="messages-area" id="messagesArea">
         {% for msg in messages %}
-        <div class="msg {% if msg.sender == request.user %}msg-me{% else %}msg-other{% endif %}" data-id="{{ msg.id }}">
+        <div class="msg {% if msg.sender == request.user %}msg-me{% else %}msg-other{% endif %}" data-id="{{ msg.id }}" data-is-sender="{% if msg.sender == request.user %}1{% else %}0{% endif %}">
             {% if msg.attachment %}
-            <div class="msg-attachment">
+            <div class="msg-attachment" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}">
                 {% if msg.attachment.attachment_type == 'image' %}
                 <img src="{{ msg.attachment.file.url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
                 {% else %}
@@ -91,6 +123,12 @@
             <div class="msg-bubble">{{ msg.text }}</div>
             {% endif %}
             <div class="msg-time">{{ msg.created_at|date:"H:i" }}{% if msg.sender == request.user %} {% if msg.is_read %}&#10003;{% else %}&#10003;{% endif %}{% endif %}</div>
+            <div class="msg-actions" id="actions-{{ msg.id }}">
+                <button class="delete-btn" data-msg-id="{{ msg.id }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    Delete
+                </button>
+            </div>
         </div>
         {% empty %}
         <div class="empty-state">
@@ -169,6 +207,22 @@
     </div>
 </div>
 
+<!-- Media Viewer -->
+<div class="media-viewer" id="mediaViewer">
+    <button class="media-viewer-close" id="mediaViewerClose">&#10005;</button>
+    <div id="mediaViewerContent"></div>
+    <button class="media-viewer-download" id="mediaViewerDownload">Download</button>
+</div>
+
+<!-- Delete Modal -->
+<div class="delete-modal" id="deleteModal">
+    <div class="delete-box">
+        <h3>Delete Message?</h3>
+        <p>This action cannot be undone.</p>
+        <div class="delete-options" id="deleteOptions"></div>
+    </div>
+</div>
+
 <script>
 const messagesArea = document.getElementById('messagesArea');
 const messageForm = document.getElementById('messageForm');
@@ -200,35 +254,45 @@ messageForm.addEventListener('submit', async function(e) {
             headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
         });
         const data = await response.json();
-        if (data.id) lastMessageId = data.id;
+        if (data.id) {
+            lastMessageId = data.id;
+            const lastMsg = messagesArea.querySelector('.msg:last-child');
+            if (lastMsg && !lastMsg.dataset.id) lastMsg.dataset.id = data.id;
+        }
     } catch (err) {
         console.error('Send failed:', err);
     }
-    
+
     document.querySelector('[name=file]').value = '';
     document.getElementById('fileName').textContent = '';
 });
 
-function appendMessage(text, isMe, attachment, isOptimistic) {
+function appendMessage(text, isMe, attachment, isOptimistic, id) {
     const div = document.createElement('div');
     div.className = `msg ${isMe ? 'msg-me' : 'msg-other'}`;
-    
+    if (id) div.dataset.id = id;
+    div.dataset.isSender = isMe ? '1' : '0';
+
     let html = '';
     if (attachment) {
-        if (attachment.type === 'image') {
-            html += `<div class="msg-attachment"><img src="${attachment.url}" alt=""></div>`;
+        const url = attachment.url || '';
+        const type = attachment.type || 'image';
+        html += `<div class="msg-attachment" data-media-url="${escapeHtml(url)}" data-media-type="${escapeHtml(type)}">`;
+        if (type === 'image') {
+            html += `<img src="${escapeHtml(url)}" alt="">`;
         } else {
-            html += `<div class="msg-attachment"><video controls src="${attachment.url}"></video></div>`;
+            html += `<video controls src="${escapeHtml(url)}"></video>`;
         }
+        html += '</div>';
     }
     if (text) html += `<div class="msg-bubble">${escapeHtml(text)}</div>`;
     html += `<div class="msg-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}${isMe ? ' <span>&#10003;</span>' : ''}</div>`;
-    
+    html += `<div class="msg-actions"><button class="delete-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Delete</button></div>`;
+
     div.innerHTML = html;
     messagesArea.appendChild(div);
     messagesArea.scrollTop = messagesArea.scrollHeight;
-    
-    // Remove empty state if exists
+
     const empty = messagesArea.querySelector('.empty-state');
     if (empty) empty.remove();
 }
@@ -249,7 +313,7 @@ async function pollMessages() {
         if (data.messages && data.messages.length > 0) {
             data.messages.forEach(msg => {
                 if (!document.querySelector(`[data-id="${msg.id}"]`)) {
-                    appendMessage(msg.text, msg.is_me, msg.attachment, false);
+                    appendMessage(msg.text, msg.is_me, msg.attachment, false, msg.id);
                     lastMessageId = msg.id;
                 }
             });
@@ -553,9 +617,195 @@ previewSend.addEventListener('click', async () => {
             headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
         });
         const data = await response.json();
-        if (data.id) lastMessageId = data.id;
+        if (data.id) {
+            lastMessageId = data.id;
+            const lastMsg = messagesArea.querySelector('.msg:last-child');
+            if (lastMsg && !lastMsg.dataset.id) lastMsg.dataset.id = data.id;
+        }
     } catch (err) {
         console.error('Send failed:', err);
     }
-});</script>
+});
+
+// ===== Media Viewer =====
+const mediaViewer = document.getElementById('mediaViewer');
+const mediaViewerContent = document.getElementById('mediaViewerContent');
+const mediaViewerClose = document.getElementById('mediaViewerClose');
+const mediaViewerDownload = document.getElementById('mediaViewerDownload');
+let currentMediaUrl = null;
+
+function openMediaViewer(url, type) {
+    currentMediaUrl = url;
+    mediaViewerContent.innerHTML = '';
+    if (type === 'image') {
+        const img = document.createElement('img');
+        img.src = url;
+        img.onclick = () => img.classList.toggle('zoomed');
+        mediaViewerContent.appendChild(img);
+        mediaViewerDownload.style.display = 'block';
+    } else {
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.autoplay = true;
+        mediaViewerContent.appendChild(video);
+        mediaViewerDownload.style.display = 'none';
+    }
+    mediaViewer.classList.add('active');
+}
+
+mediaViewerClose.addEventListener('click', () => {
+    mediaViewerContent.innerHTML = '';
+    mediaViewer.classList.remove('active');
+    currentMediaUrl = null;
+});
+
+mediaViewer.addEventListener('click', (e) => {
+    if (e.target === mediaViewer) {
+        mediaViewerContent.innerHTML = '';
+        mediaViewer.classList.remove('active');
+        currentMediaUrl = null;
+    }
+});
+
+mediaViewerDownload.addEventListener('click', () => {
+    if (!currentMediaUrl) return;
+    const a = document.createElement('a');
+    a.href = currentMediaUrl;
+    a.download = currentMediaUrl.split('/').pop() || 'download';
+    a.click();
+});
+
+// ===== Message Delete =====
+const deleteModal = document.getElementById('deleteModal');
+const deleteOptions = document.getElementById('deleteOptions');
+let pendingDeleteId = null;
+
+function showDeleteModal(msgId, isSender) {
+    pendingDeleteId = msgId;
+    deleteOptions.innerHTML = '';
+
+    const btnMe = document.createElement('button');
+    btnMe.textContent = 'Delete for me';
+    btnMe.onclick = () => doDeleteMessage('me');
+    deleteOptions.appendChild(btnMe);
+
+    if (isSender) {
+        const btnEveryone = document.createElement('button');
+        btnEveryone.textContent = 'Delete for everyone';
+        btnEveryone.className = 'danger';
+        btnEveryone.onclick = () => doDeleteMessage('everyone');
+        deleteOptions.appendChild(btnEveryone);
+    }
+
+    const btnCancel = document.createElement('button');
+    btnCancel.textContent = 'Cancel';
+    btnCancel.onclick = hideDeleteModal;
+    deleteOptions.appendChild(btnCancel);
+
+    deleteModal.classList.add('active');
+}
+
+function hideDeleteModal() {
+    deleteModal.classList.remove('active');
+    pendingDeleteId = null;
+}
+
+async function doDeleteMessage(mode) {
+    if (!pendingDeleteId) return;
+    try {
+        const response = await fetch('/chat/api/delete-message/' + pendingDeleteId + '/', {
+            method: 'POST',
+            body: new URLSearchParams({ mode: mode }),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        const data = await response.json();
+        if (data.success) {
+            const msgEl = document.querySelector(`.msg[data-id="${pendingDeleteId}"]`);
+            if (msgEl) {
+                if (mode === 'everyone') {
+                    msgEl.remove();
+                } else {
+                    msgEl.remove();
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Delete failed:', err);
+    }
+    hideDeleteModal();
+}
+
+deleteModal.addEventListener('click', (e) => {
+    if (e.target === deleteModal) hideDeleteModal();
+});
+
+// ===== Message Long-press Menu =====
+let longPressTimer = null;
+let activeMenu = null;
+
+messagesArea.addEventListener('touchstart', handlePressStart, { passive: true });
+messagesArea.addEventListener('touchend', handlePressEnd);
+messagesArea.addEventListener('touchmove', handlePressEnd);
+messagesArea.addEventListener('mousedown', handlePressStart);
+messagesArea.addEventListener('mouseup', handlePressEnd);
+messagesArea.addEventListener('mouseleave', handlePressEnd);
+
+function handlePressStart(e) {
+    const msgEl = e.target.closest('.msg');
+    if (!msgEl) return;
+    longPressTimer = setTimeout(() => {
+        showMessageMenu(msgEl);
+    }, 500);
+}
+
+function handlePressEnd(e) {
+    if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+    }
+}
+
+function showMessageMenu(msgEl) {
+    if (activeMenu) activeMenu.classList.remove('active');
+    const menu = msgEl.querySelector('.msg-actions');
+    if (!menu) return;
+    menu.classList.add('active');
+    activeMenu = menu;
+}
+
+document.addEventListener('click', (e) => {
+    if (activeMenu && !e.target.closest('.msg-actions')) {
+        activeMenu.classList.remove('active');
+        activeMenu = null;
+    }
+});
+
+// Event delegation for delete buttons and media attachments
+messagesArea.addEventListener('click', (e) => {
+    const delBtn = e.target.closest('.delete-btn');
+    if (delBtn) {
+        const msgEl = delBtn.closest('.msg');
+        const msgId = delBtn.dataset.msgId || (msgEl && msgEl.dataset.id);
+        const isSender = msgEl && msgEl.dataset.isSender === '1';
+        if (!msgId) return;
+        showDeleteModal(msgId, isSender);
+        if (activeMenu) {
+            activeMenu.classList.remove('active');
+            activeMenu = null;
+        }
+        return;
+    }
+
+    const mediaEl = e.target.closest('.msg-attachment');
+    if (mediaEl && !e.target.closest('video')) {
+        const url = mediaEl.dataset.mediaUrl;
+        const type = mediaEl.dataset.mediaType;
+        if (url && type) openMediaViewer(url, type);
+    }
+});
+</script>
 {% endblock %}

@@ -50,7 +50,7 @@ def chat_conversation(request, conversation_id):
     
     other = conversation.get_other_participant(user)
     conversation.messages.filter(sender=other, is_read=False).update(is_read=True, read_at=timezone.now())
-    messages = conversation.messages.filter(is_deleted=False).select_related('sender', 'attachment').order_by('created_at')
+    messages = conversation.messages.filter(is_deleted=False).exclude(deleted_for=user).select_related('sender', 'attachment').order_by('created_at')
     
     return render(request, 'chat/conversation.html', {
         'conversation': conversation, 'other_user': other, 'messages': messages
@@ -118,12 +118,12 @@ def get_messages(request, conversation_id):
     conversation = get_object_or_404(Conversation, id=conversation_id)
     if request.user not in [conversation.participant1, conversation.participant2]:
         return JsonResponse({'error': 'Not a participant'}, status=403)
-    
+
     last_id = request.GET.get('last_id')
-    messages = conversation.messages.filter(is_deleted=False)
+    messages = conversation.messages.filter(is_deleted=False).exclude(deleted_for=request.user)
     if last_id:
         messages = messages.filter(id__gt=last_id)
-    
+
     messages = messages.select_related('sender', 'attachment').order_by('created_at')
     data = []
     for msg in messages:
@@ -132,5 +132,30 @@ def get_messages(request, conversation_id):
                      'is_read': msg.is_read,
                      'attachment': {'type': msg.attachment.attachment_type if msg.attachment else None,
                                     'url': msg.attachment.file.url if msg.attachment else None} if msg.attachment else None})
-    
+
     return JsonResponse({'messages': data})
+
+
+@login_required
+def delete_message(request, message_id):
+    """Delete message for me or for everyone"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    message = get_object_or_404(Message, id=message_id)
+    user = request.user
+
+    if user not in [message.conversation.participant1, message.conversation.participant2]:
+        return JsonResponse({'error': 'Not a participant'}, status=403)
+
+    mode = request.POST.get('mode', 'me')
+
+    if mode == 'everyone':
+        if message.sender != user:
+            return JsonResponse({'error': 'Only sender can delete for everyone'}, status=403)
+        message.is_deleted = True
+        message.save()
+    else:
+        message.deleted_for.add(user)
+
+    return JsonResponse({'success': True, 'mode': mode})

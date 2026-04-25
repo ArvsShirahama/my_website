@@ -87,6 +87,7 @@ class Message(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
+    deleted_for = models.ManyToManyField(User, related_name='deleted_messages', blank=True)
 
     class Meta:
         db_table = 'chat_message'
