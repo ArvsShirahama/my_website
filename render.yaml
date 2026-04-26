@@ -5,7 +5,7 @@ services:
     env: python
     plan: free
     buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
-    startCommand: "python manage.py migrate --noinput && gunicorn myproject.wsgi:application"
+    startCommand: "python manage.py migrate --noinput && (python manage.py createsuperuser --noinput || true) && gunicorn myproject.wsgi:application"
     envVars:
       - key: DEBUG
         value: false
@@ -17,6 +17,12 @@ services:
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
         sync: false
       - key: ALLOWED_HOSTS
         value: my-website-4jgk.onrender.com
