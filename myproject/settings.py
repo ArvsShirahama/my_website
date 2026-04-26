@@ -20,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 import os
+IS_RENDER = os.environ.get('RENDER', '').lower() == 'true'
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-j9s26*1b23!vg$ty$q#*s-gh!6-3*uxevg06et16rq1d@xitn2')
@@ -142,6 +143,13 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'allauth.account.auth_backends.AuthenticationBackend',
+)
+
+# On Render free tier (no shell access), signed-cookie sessions avoid hard failures
+# when DB session tables are missing. Can be overridden via SESSION_ENGINE env var.
+SESSION_ENGINE = os.environ.get(
+    'SESSION_ENGINE',
+    'django.contrib.sessions.backends.signed_cookies' if IS_RENDER else 'django.contrib.sessions.backends.db',
 )
 
 # Google OAuth settings
