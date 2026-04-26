@@ -4,28 +4,19 @@ services:
     name: django-google-oauth
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    startCommand: gunicorn myproject.wsgi:application
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput"
+    startCommand: "gunicorn myproject.wsgi:application"
     envVars:
       - key: DEBUG
         value: false
       - key: SECRET_KEY
         generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: django-db
-          property: connectionString
+      # DATABASE_URL is set manually in the Render dashboard
+      # (Environment tab) using the Internal Database URL from
+      # the PostgreSQL database created in Render.
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
         sync: false
       - key: ALLOWED_HOSTS
         value: my-website-4jgk.onrender.com
-
-  # PostgreSQL Database
-  - type: pserv
-    name: django-db
-    plan: free
-    env: docker
-    databaseName: django_oauth_db
-    user: django_user
