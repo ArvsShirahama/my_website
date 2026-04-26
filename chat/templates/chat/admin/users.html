@@ -4,6 +4,7 @@
 
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
+    <span id="admin-meta" data-is-admin="{% if is_admin %}true{% else %}false{% endif %}" style="display: none;"></span>
     <div class="app-bar">
         <div style="display: flex; align-items: center; gap: 12px;">
             <a href="{% url 'admin_dashboard' %}" class="back-btn">&#8592;</a>
@@ -141,41 +142,42 @@ async function deleteUser(userId) {
     }
 }
 
-{% if is_admin %}
-let currentEditUserId = null;
-function openEditModal(btn) {
-    currentEditUserId = btn.dataset.userId;
-    document.getElementById('editUsername').value = btn.dataset.username;
-    document.getElementById('editRole').value = btn.dataset.role;
-    const modal = document.getElementById('editModal');
-    modal.style.display = 'flex';
-    document.getElementById('editForm').action = `/chat/admin/users/edit/${currentEditUserId}/`;
-}
-function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
-    currentEditUserId = null;
-}
-document.getElementById('editModal').addEventListener('click', closeEditModal);
-document.getElementById('editForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const form = e.target;
-    const data = new FormData(form);
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            headers: { 'X-CSRFToken': data.get('csrfmiddlewaretoken') },
-            body: data
-        });
-        const result = await response.json();
-        if (result.success) {
-            window.location.reload();
-        } else {
-            alert(result.error || 'Failed to update user');
-        }
-    } catch (err) {
-        alert('Failed to update user');
+const isAdmin = document.getElementById('admin-meta').dataset.isAdmin === 'true';
+if (isAdmin) {
+    let currentEditUserId = null;
+    function openEditModal(btn) {
+        currentEditUserId = btn.dataset.userId;
+        document.getElementById('editUsername').value = btn.dataset.username;
+        document.getElementById('editRole').value = btn.dataset.role;
+        const modal = document.getElementById('editModal');
+        modal.style.display = 'flex';
+        document.getElementById('editForm').action = `/chat/admin/users/edit/${currentEditUserId}/`;
     }
-});
-{% endif %}
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+        currentEditUserId = null;
+    }
+    document.getElementById('editModal').addEventListener('click', closeEditModal);
+    document.getElementById('editForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const data = new FormData(form);
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': data.get('csrfmiddlewaretoken') },
+                body: data
+            });
+            const result = await response.json();
+            if (result.success) {
+                window.location.reload();
+            } else {
+                alert(result.error || 'Failed to update user');
+            }
+        } catch (err) {
+            alert('Failed to update user');
+        }
+    });
+}
 </script>
 {% endblock %}
