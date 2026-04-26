@@ -9,7 +9,7 @@ from django.core.files.base import ContentFile
 import os
 import uuid
 
-from .models import UserProfile, Conversation, Message, Attachment
+from .models import UserProfile, Conversation, Message, Attachment, ConversationTheme
 
 
 def can_bypass_view_once(user):
@@ -67,12 +67,37 @@ def chat_conversation(request, conversation_id):
     for msg in messages:
         msg.is_consumed_for_user = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=user.id).exists()
     
+    theme = ConversationTheme.objects.filter(user=user, conversation=conversation).first()
+    theme_data = serialize_theme(theme)
+
     return render(request, 'chat/conversation.html', {
         'conversation': conversation,
         'other_user': other,
         'messages': messages,
         'can_bypass_view_once': bypass,
+        'theme_data': theme_data,
     })
+
+
+def serialize_theme(theme):
+    """Convert a ConversationTheme into a small dict the template/JS can consume."""
+    if not theme:
+        return {
+            'preset': 'default',
+            'bg_color': '',
+            'bg_image': '',
+            'bubble_me_color': '',
+            'bubble_other_color': '',
+            'text_color': '',
+        }
+    return {
+        'preset': theme.preset,
+        'bg_color': theme.bg_color or '',
+        'bg_image': theme.bg_image.url if theme.bg_image else '',
+        'bubble_me_color': theme.bubble_me_color or '',
+        'bubble_other_color': theme.bubble_other_color or '',
+        'text_color': theme.text_color or '',
+    }
 
 
 @login_required
@@ -219,3 +244,106 @@ def delete_message(request, message_id):
         message.deleted_for.add(user)
 
     return JsonResponse({'success': True, 'mode': mode})
+
+
+# ===== Conversation theme APIs =====
+
+VALID_PRESETS = {choice[0] for choice in ConversationTheme.PRESET_CHOICES}
+COLOR_FIELDS = ('bg_color', 'bubble_me_color', 'bubble_other_color', 'text_color')
+MAX_THEME_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+def _is_valid_color(value):
+    """Accept a small whitelist of CSS color formats to avoid injecting arbitrary CSS."""
+    if not value:
+        return True
+    value = value.strip()
+    if len(value) > 32:
+        return False
+    if value.startswith('#') and (len(value) in (4, 7, 9)):
+        return all(c in '0123456789abcdefABCDEF' for c in value[1:])
+    if value.startswith('rgb(') or value.startswith('rgba('):
+        return value.endswith(')') and ';' not in value and '/*' not in value
+    # named colors / simple words
+    return value.replace('-', '').replace('_', '').isalnum()
+
+
+@login_required
+def get_conversation_theme(request, conversation_id):
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    if request.user not in [conversation.participant1, conversation.participant2]:
+        return JsonResponse({'error': 'Not a participant'}, status=403)
+
+    theme = ConversationTheme.objects.filter(user=request.user, conversation=conversation).first()
+    return JsonResponse({'success': True, 'theme': serialize_theme(theme)})
+
+
+@login_required
+def set_conversation_theme(request, conversation_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    if request.user not in [conversation.participant1, conversation.participant2]:
+        return JsonResponse({'error': 'Not a participant'}, status=403)
+
+    preset = request.POST.get('preset', 'default').strip()
+    if preset not in VALID_PRESETS:
+        return JsonResponse({'error': 'Invalid preset'}, status=400)
+
+    colors = {}
+    for field in COLOR_FIELDS:
+        val = request.POST.get(field, '').strip()
+        if not _is_valid_color(val):
+            return JsonResponse({'error': f'Invalid {field}'}, status=400)
+        colors[field] = val
+
+    theme, _created = ConversationTheme.objects.get_or_create(
+        user=request.user, conversation=conversation
+    )
+    theme.preset = preset
+    for field, val in colors.items():
+        setattr(theme, field, val)
+
+    if 'bg_image' in request.FILES:
+        uploaded = request.FILES['bg_image']
+        if not uploaded.content_type.startswith('image/'):
+            return JsonResponse({'error': 'bg_image must be an image'}, status=400)
+        if uploaded.size > MAX_THEME_IMAGE_BYTES:
+            return JsonResponse({'error': 'bg_image too large (max 5MB)'}, status=400)
+        if theme.bg_image:
+            try:
+                theme.bg_image.delete(save=False)
+            except Exception:
+                pass
+        theme.bg_image = uploaded
+    elif request.POST.get('clear_bg_image') == '1' and theme.bg_image:
+        try:
+            theme.bg_image.delete(save=False)
+        except Exception:
+            pass
+        theme.bg_image = None
+
+    theme.save()
+    return JsonResponse({'success': True, 'theme': serialize_theme(theme)})
+
+
+@login_required
+def reset_conversation_theme(request, conversation_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    conversation = get_object_or_404(Conversation, id=conversation_id)
+    if request.user not in [conversation.participant1, conversation.participant2]:
+        return JsonResponse({'error': 'Not a participant'}, status=403)
+
+    theme = ConversationTheme.objects.filter(user=request.user, conversation=conversation).first()
+    if theme:
+        if theme.bg_image:
+            try:
+                theme.bg_image.delete(save=False)
+            except Exception:
+                pass
+        theme.delete()
+
+    return JsonResponse({'success': True, 'theme': serialize_theme(None)})

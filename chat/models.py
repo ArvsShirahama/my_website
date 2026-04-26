@@ -121,6 +121,41 @@ class Message(models.Model):
         return f"{self.sender.username}: {preview}"
 
 
+class ConversationTheme(models.Model):
+    """Per-user, per-conversation chat theme customization."""
+    PRESET_CHOICES = [
+        ('default', 'Default'),
+        ('light', 'Light'),
+        ('dark', 'Dark'),
+        ('gradient_blue', 'Blue Gradient'),
+        ('gradient_sunset', 'Sunset Gradient'),
+        ('gradient_aurora', 'Aurora Gradient'),
+        ('solid', 'Solid Color'),
+        ('image', 'Custom Image'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='conversation_themes')
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='themes')
+    preset = models.CharField(max_length=20, choices=PRESET_CHOICES, default='default')
+    bg_color = models.CharField(max_length=32, blank=True)
+    bg_image = models.ImageField(upload_to='chat_themes/', blank=True, null=True)
+    bubble_me_color = models.CharField(max_length=32, blank=True)
+    bubble_other_color = models.CharField(max_length=32, blank=True)
+    text_color = models.CharField(max_length=32, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'chat_conversation_theme'
+        unique_together = ['user', 'conversation']
+        indexes = [
+            models.Index(fields=['user', 'conversation']),
+        ]
+
+    def __str__(self):
+        return f"Theme[{self.user.username} / {self.conversation_id}] = {self.preset}"
+
+
 class AdminLog(models.Model):
     """Log for admin actions"""
     ACTION_TYPES = [

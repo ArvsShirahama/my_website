@@ -305,10 +305,131 @@
 .delete-options button:hover { background: var(--surface-hover); }
 .delete-options button.danger { border-color: #EF4444; color: #EF4444; }
 .delete-options button.danger:hover { background: rgba(239,68,68,0.1); }
+
+/* ===== Per-conversation theme overrides =====
+   Variables are scoped to .chat-themed so the rest of the app keeps the
+   global theme. We let JS set inline CSS vars + classes here.
+*/
+.chat-themed {
+    --chat-bg: var(--bg);
+    --chat-msg-me: var(--msg-me);
+    --chat-msg-me-text: var(--msg-me-text);
+    --chat-msg-other: var(--msg-other);
+    --chat-msg-other-text: var(--msg-other-text);
+    --chat-text: var(--text);
+    background: var(--chat-bg);
+    color: var(--chat-text);
+    transition: background 0.3s ease, color 0.3s ease;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+.chat-themed .messages-area { background: transparent; }
+.chat-themed .msg-me .msg-bubble { background: var(--chat-msg-me); color: var(--chat-msg-me-text); }
+.chat-themed .msg-other .msg-bubble { background: var(--chat-msg-other); color: var(--chat-msg-other-text); }
+.chat-themed.preset-gradient_blue { background-image: linear-gradient(135deg, #2563EB 0%, #06B6D4 100%); }
+.chat-themed.preset-gradient_sunset { background-image: linear-gradient(135deg, #F97316 0%, #EC4899 100%); }
+.chat-themed.preset-gradient_aurora { background-image: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #EC4899 100%); }
+.chat-themed.preset-dark { --chat-bg: #0F172A; --chat-text: #E5E7EB; --chat-msg-other: #1E293B; --chat-msg-other-text: #E5E7EB; }
+.chat-themed.preset-light { --chat-bg: #FFFFFF; --chat-text: #111827; --chat-msg-other: #F1F5F9; --chat-msg-other-text: #111827; }
+
+/* Theme panel */
+.menu-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-hover);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+}
+.theme-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 4000; align-items: flex-end; justify-content: center; backdrop-filter: blur(4px); }
+.theme-modal.active { display: flex; }
+.theme-sheet {
+    background: var(--surface);
+    color: var(--text);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    width: 100%;
+    max-width: 600px;
+    padding: 16px 16px 24px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.theme-sheet h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.theme-sheet .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+.theme-section { margin-top: 16px; }
+.theme-section-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px; letter-spacing: 0.04em; }
+.preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.preset-card {
+    aspect-ratio: 1.4;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-hover);
+    display: flex;
+    align-items: flex-end;
+    padding: 8px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.preset-card.selected { border-color: var(--primary); }
+.preset-card .check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-size: 13px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.preset-card.selected .check { display: flex; }
+.preset-default { background: linear-gradient(135deg, #F9FAFB 0%, #E5E7EB 100%); color: #111827; text-shadow: none; }
+.preset-light { background: #FFFFFF; color: #111827; text-shadow: none; }
+.preset-dark { background: #0F172A; }
+.preset-gradient_blue { background: linear-gradient(135deg, #2563EB, #06B6D4); }
+.preset-gradient_sunset { background: linear-gradient(135deg, #F97316, #EC4899); }
+.preset-gradient_aurora { background: linear-gradient(135deg, #6366F1, #8B5CF6, #EC4899); }
+.preset-solid { background: var(--bg-color-preview, #2563EB); }
+.preset-image { background: var(--bg-image-preview, var(--surface-hover)) center/cover no-repeat; color: #fff; }
+
+.theme-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.theme-row label { flex: 1; font-size: 13px; color: var(--text-secondary); }
+.theme-row input[type="color"] { width: 44px; height: 36px; border-radius: 8px; border: 1px solid var(--border); padding: 0; cursor: pointer; background: var(--surface); }
+.theme-file-row { display: flex; align-items: center; gap: 8px; }
+.theme-file-btn {
+    background: var(--surface-hover);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.theme-file-name { flex: 1; font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.theme-actions { display: flex; gap: 10px; margin-top: 18px; }
+.theme-actions .btn { flex: 1; }
+.theme-error { color: var(--error); font-size: 13px; margin-top: 8px; min-height: 16px; }
 {% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; height: 100vh;">
+<div id="chatRoot" class="chat-themed" style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; height: 100vh;">
     <div class="app-bar">
         <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
             <a href="{% url 'chat_list' %}" class="back-btn">&#8592;</a>
@@ -326,7 +447,8 @@
                 </div>
             </div>
         </div>
-        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+        <button class="menu-btn" id="customizeChatBtn" type="button" title="Customize chat" aria-label="Customize chat">&#9881;</button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle global theme">&#9788;</button>
     </div>
     
     <div class="messages-area" id="messagesArea">
@@ -476,6 +598,76 @@
     <button class="media-viewer-download" id="mediaViewerDownload">Download</button>
 </div>
 
+<!-- Theme Modal -->
+<div class="theme-modal" id="themeModal">
+    <div class="theme-sheet" role="dialog" aria-label="Customize chat theme">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <h3>Customize Chat</h3>
+                <div class="subtitle">Theme applies only to this conversation, just for you.</div>
+            </div>
+            <button type="button" class="menu-btn" id="themeCloseBtn" aria-label="Close">&#10005;</button>
+        </div>
+
+        <div class="theme-section">
+            <div class="theme-section-title">Presets</div>
+            <div class="preset-grid" id="presetGrid">
+                <div class="preset-card preset-default" data-preset="default"><span class="check">&#10003;</span>Default</div>
+                <div class="preset-card preset-light" data-preset="light"><span class="check">&#10003;</span>Light</div>
+                <div class="preset-card preset-dark" data-preset="dark"><span class="check">&#10003;</span>Dark</div>
+                <div class="preset-card preset-gradient_blue" data-preset="gradient_blue"><span class="check">&#10003;</span>Blue</div>
+                <div class="preset-card preset-gradient_sunset" data-preset="gradient_sunset"><span class="check">&#10003;</span>Sunset</div>
+                <div class="preset-card preset-gradient_aurora" data-preset="gradient_aurora"><span class="check">&#10003;</span>Aurora</div>
+                <div class="preset-card preset-solid" data-preset="solid"><span class="check">&#10003;</span>Solid</div>
+                <div class="preset-card preset-image" data-preset="image"><span class="check">&#10003;</span>Image</div>
+            </div>
+        </div>
+
+        <div class="theme-section" id="solidColorSection" style="display: none;">
+            <div class="theme-section-title">Background color</div>
+            <div class="theme-row">
+                <label for="bgColorInput">Pick a color</label>
+                <input type="color" id="bgColorInput" value="#2563EB">
+            </div>
+        </div>
+
+        <div class="theme-section" id="imageSection" style="display: none;">
+            <div class="theme-section-title">Background image</div>
+            <div class="theme-file-row">
+                <label class="theme-file-btn" for="bgImageInput">Choose image</label>
+                <input type="file" id="bgImageInput" accept="image/*" style="display: none;">
+                <span class="theme-file-name" id="bgImageName">No file selected</span>
+                <button type="button" class="theme-file-btn" id="clearBgImageBtn" style="display:none;">Remove</button>
+            </div>
+            <div class="subtitle" style="margin-top:6px;">Max 5MB. JPG/PNG/WebP recommended.</div>
+        </div>
+
+        <div class="theme-section">
+            <div class="theme-section-title">Bubble colors (optional)</div>
+            <div class="theme-row">
+                <label for="bubbleMeColor">My messages</label>
+                <input type="color" id="bubbleMeColor" value="#2563EB">
+                <button type="button" class="theme-file-btn" data-clear="bubbleMe">Clear</button>
+            </div>
+            <div class="theme-row">
+                <label for="bubbleOtherColor">Their messages</label>
+                <input type="color" id="bubbleOtherColor" value="#F3F4F6">
+                <button type="button" class="theme-file-btn" data-clear="bubbleOther">Clear</button>
+            </div>
+        </div>
+
+        <div class="theme-error" id="themeError"></div>
+
+        <div class="theme-actions">
+            <button type="button" class="btn btn-secondary" id="themeResetBtn">Reset</button>
+            <button type="button" class="btn" id="themeApplyBtn">Apply</button>
+        </div>
+    </div>
+</div>
+
+{{ theme_data|json_script:"chat-theme-data" }}
+{{ can_bypass_view_once|json_script:"can-bypass-view-once" }}
+
 <!-- Delete Modal -->
 <div class="delete-modal" id="deleteModal">
     <div class="delete-box">
@@ -490,7 +682,7 @@ const messagesArea = document.getElementById('messagesArea');
 const messageForm = document.getElementById('messageForm');
 const messageInput = document.getElementById('messageInput');
 const conversationId = '{{ conversation.id }}';
-const canBypassViewOnce = {% if can_bypass_view_once %}true{% else %}false{% endif %};
+const canBypassViewOnce = JSON.parse(document.getElementById('can-bypass-view-once').textContent);
 let lastMessageId = '{{ messages.last.id }}';
 
 // Scroll to bottom
@@ -1436,5 +1628,249 @@ messagesArea.addEventListener('click', (e) => {
         if (url && type) openMediaViewer(url, type, { isViewOnce: false });
     }
 });
+
+// ===== Conversation Theme =====
+const chatRoot = document.getElementById('chatRoot');
+const themeModal = document.getElementById('themeModal');
+const customizeChatBtn = document.getElementById('customizeChatBtn');
+const themeCloseBtn = document.getElementById('themeCloseBtn');
+const presetGrid = document.getElementById('presetGrid');
+const solidColorSection = document.getElementById('solidColorSection');
+const imageSection = document.getElementById('imageSection');
+const bgColorInput = document.getElementById('bgColorInput');
+const bgImageInput = document.getElementById('bgImageInput');
+const bgImageName = document.getElementById('bgImageName');
+const clearBgImageBtn = document.getElementById('clearBgImageBtn');
+const bubbleMeColor = document.getElementById('bubbleMeColor');
+const bubbleOtherColor = document.getElementById('bubbleOtherColor');
+const themeApplyBtn = document.getElementById('themeApplyBtn');
+const themeResetBtn = document.getElementById('themeResetBtn');
+const themeError = document.getElementById('themeError');
+
+const PRESET_VALUES = ['default','light','dark','gradient_blue','gradient_sunset','gradient_aurora','solid','image'];
+
+const themeDataEl = document.getElementById('chat-theme-data');
+const initialTheme = themeDataEl ? JSON.parse(themeDataEl.textContent) : {
+    preset: 'default', bg_color: '', bg_image: '',
+    bubble_me_color: '', bubble_other_color: '', text_color: ''
+};
+
+let themeDraft = { ...initialTheme };
+let themeDraftFile = null;
+let themeDraftFilePreviewUrl = null;
+let themeDraftClearImage = false;
+
+// Apply theme to the chat container (live: used both for preview and persisted state)
+function applyThemeToChat(theme) {
+    if (!chatRoot) return;
+    PRESET_VALUES.forEach(p => chatRoot.classList.remove('preset-' + p));
+    const preset = theme.preset || 'default';
+    chatRoot.classList.add('preset-' + preset);
+
+    chatRoot.style.removeProperty('--chat-bg');
+    chatRoot.style.removeProperty('background-image');
+    chatRoot.style.removeProperty('--chat-msg-me');
+    chatRoot.style.removeProperty('--chat-msg-other');
+
+    if (preset === 'solid' && theme.bg_color) {
+        chatRoot.style.setProperty('--chat-bg', theme.bg_color);
+        chatRoot.style.backgroundImage = 'none';
+    } else if (preset === 'image' && theme.bg_image) {
+        chatRoot.style.backgroundImage = `url("${theme.bg_image}")`;
+    }
+
+    if (theme.bubble_me_color) chatRoot.style.setProperty('--chat-msg-me', theme.bubble_me_color);
+    if (theme.bubble_other_color) chatRoot.style.setProperty('--chat-msg-other', theme.bubble_other_color);
+}
+
+function selectPresetCard(preset) {
+    presetGrid.querySelectorAll('.preset-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.preset === preset);
+    });
+    solidColorSection.style.display = preset === 'solid' ? '' : 'none';
+    imageSection.style.display = preset === 'image' ? '' : 'none';
+}
+
+function syncDraftToControls() {
+    selectPresetCard(themeDraft.preset || 'default');
+    if (themeDraft.bg_color) bgColorInput.value = themeDraft.bg_color;
+    if (themeDraft.bubble_me_color) bubbleMeColor.value = themeDraft.bubble_me_color;
+    if (themeDraft.bubble_other_color) bubbleOtherColor.value = themeDraft.bubble_other_color;
+    if (themeDraft.bg_image && !themeDraftFile) {
+        bgImageName.textContent = 'Current image set';
+        clearBgImageBtn.style.display = '';
+    } else if (!themeDraft.bg_image && !themeDraftFile) {
+        bgImageName.textContent = 'No file selected';
+        clearBgImageBtn.style.display = 'none';
+    }
+}
+
+function previewDraft() {
+    const previewTheme = { ...themeDraft };
+    if (themeDraftFilePreviewUrl) previewTheme.bg_image = themeDraftFilePreviewUrl;
+    if (themeDraftClearImage) previewTheme.bg_image = '';
+    applyThemeToChat(previewTheme);
+}
+
+function showThemeError(msg) {
+    themeError.textContent = msg || '';
+}
+
+function openThemeModal() {
+    themeDraft = { ...initialTheme };
+    themeDraftFile = null;
+    if (themeDraftFilePreviewUrl) URL.revokeObjectURL(themeDraftFilePreviewUrl);
+    themeDraftFilePreviewUrl = null;
+    themeDraftClearImage = false;
+    showThemeError('');
+    syncDraftToControls();
+    themeModal.classList.add('active');
+}
+
+function closeThemeModal() {
+    themeModal.classList.remove('active');
+    if (themeDraftFilePreviewUrl) {
+        URL.revokeObjectURL(themeDraftFilePreviewUrl);
+        themeDraftFilePreviewUrl = null;
+    }
+    // Revert preview to last persisted theme
+    applyThemeToChat(initialTheme);
+}
+
+if (customizeChatBtn) customizeChatBtn.addEventListener('click', openThemeModal);
+if (themeCloseBtn) themeCloseBtn.addEventListener('click', closeThemeModal);
+themeModal.addEventListener('click', (e) => { if (e.target === themeModal) closeThemeModal(); });
+
+presetGrid.addEventListener('click', (e) => {
+    const card = e.target.closest('.preset-card');
+    if (!card) return;
+    themeDraft.preset = card.dataset.preset;
+    selectPresetCard(themeDraft.preset);
+    previewDraft();
+});
+
+bgColorInput.addEventListener('input', () => {
+    themeDraft.bg_color = bgColorInput.value;
+    if (themeDraft.preset !== 'solid') {
+        themeDraft.preset = 'solid';
+        selectPresetCard('solid');
+    }
+    previewDraft();
+});
+
+bubbleMeColor.addEventListener('input', () => {
+    themeDraft.bubble_me_color = bubbleMeColor.value;
+    previewDraft();
+});
+bubbleOtherColor.addEventListener('input', () => {
+    themeDraft.bubble_other_color = bubbleOtherColor.value;
+    previewDraft();
+});
+
+document.querySelectorAll('[data-clear]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const which = btn.dataset.clear;
+        if (which === 'bubbleMe') themeDraft.bubble_me_color = '';
+        else if (which === 'bubbleOther') themeDraft.bubble_other_color = '';
+        previewDraft();
+    });
+});
+
+bgImageInput.addEventListener('change', () => {
+    const file = bgImageInput.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+        showThemeError('Image too large (max 5MB).');
+        bgImageInput.value = '';
+        return;
+    }
+    showThemeError('');
+    themeDraftFile = file;
+    themeDraftClearImage = false;
+    if (themeDraftFilePreviewUrl) URL.revokeObjectURL(themeDraftFilePreviewUrl);
+    themeDraftFilePreviewUrl = URL.createObjectURL(file);
+    bgImageName.textContent = file.name;
+    clearBgImageBtn.style.display = '';
+    if (themeDraft.preset !== 'image') {
+        themeDraft.preset = 'image';
+        selectPresetCard('image');
+    }
+    previewDraft();
+});
+
+clearBgImageBtn.addEventListener('click', () => {
+    themeDraftFile = null;
+    if (themeDraftFilePreviewUrl) URL.revokeObjectURL(themeDraftFilePreviewUrl);
+    themeDraftFilePreviewUrl = null;
+    themeDraftClearImage = true;
+    themeDraft.bg_image = '';
+    bgImageInput.value = '';
+    bgImageName.textContent = 'No file selected';
+    clearBgImageBtn.style.display = 'none';
+    previewDraft();
+});
+
+themeApplyBtn.addEventListener('click', async () => {
+    showThemeError('');
+    themeApplyBtn.disabled = true;
+    try {
+        const fd = new FormData();
+        fd.set('preset', themeDraft.preset || 'default');
+        fd.set('bg_color', themeDraft.bg_color || '');
+        fd.set('bubble_me_color', themeDraft.bubble_me_color || '');
+        fd.set('bubble_other_color', themeDraft.bubble_other_color || '');
+        if (themeDraftFile) fd.set('bg_image', themeDraftFile);
+        if (themeDraftClearImage) fd.set('clear_bg_image', '1');
+
+        const response = await fetch('/chat/api/theme/' + conversationId + '/set/', {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Failed to save');
+
+        Object.assign(initialTheme, data.theme);
+        applyThemeToChat(initialTheme);
+        themeDraftFile = null;
+        if (themeDraftFilePreviewUrl) URL.revokeObjectURL(themeDraftFilePreviewUrl);
+        themeDraftFilePreviewUrl = null;
+        themeDraftClearImage = false;
+        themeModal.classList.remove('active');
+    } catch (err) {
+        showThemeError(err.message || 'Failed to save theme');
+    } finally {
+        themeApplyBtn.disabled = false;
+    }
+});
+
+themeResetBtn.addEventListener('click', async () => {
+    showThemeError('');
+    themeResetBtn.disabled = true;
+    try {
+        const response = await fetch('/chat/api/theme/' + conversationId + '/reset/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.error || 'Failed to reset');
+
+        Object.assign(initialTheme, data.theme);
+        applyThemeToChat(initialTheme);
+        themeDraft = { ...initialTheme };
+        themeDraftFile = null;
+        if (themeDraftFilePreviewUrl) URL.revokeObjectURL(themeDraftFilePreviewUrl);
+        themeDraftFilePreviewUrl = null;
+        themeDraftClearImage = false;
+        syncDraftToControls();
+    } catch (err) {
+        showThemeError(err.message || 'Failed to reset theme');
+    } finally {
+        themeResetBtn.disabled = false;
+    }
+});
+
+// Apply persisted theme on page load
+applyThemeToChat(initialTheme);
 </script>
 {% endblock %}
