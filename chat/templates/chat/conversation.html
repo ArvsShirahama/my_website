@@ -48,9 +48,9 @@
 .cam-vid-stop { background: rgba(255,255,255,0.2); }
 .preview-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 1001; flex-direction: column; }
 .preview-overlay.active { display: flex; }
-.preview-media { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.preview-media { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 0; overflow: hidden; }
 .preview-media img, .preview-media video { max-width: 100%; max-height: 100%; border-radius: var(--radius-md); object-fit: contain; }
-.preview-actions { display: flex; gap: 12px; padding: 16px; justify-content: center; }
+.preview-actions { display: flex; gap: 12px; padding: 16px; justify-content: center; flex-shrink: 0; }
 
 /* Media Viewer */
 .media-viewer { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
@@ -151,7 +151,7 @@
             </svg>
         </button>
         <label class="attach-btn" title="Attach file">
-            <input type="file" name="file" accept="image/*,video/*" style="display: none;" onchange="document.getElementById('fileName').textContent = this.files[0]?.name || '';">
+            <input type="file" name="file" id="fileInput" accept="image/*,video/*" style="display: none;">
             &#128206;
         </label>
         <input type="text" name="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
@@ -359,6 +359,20 @@ let isPaused = false;
 let capturedBlob = null;
 let capturedType = null;
 let countdownTimer = null;
+const fileInput = document.getElementById('fileInput');
+
+// File attachment preview
+fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    document.getElementById('fileName').textContent = file.name || '';
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith('video') ? 'video' : 'image';
+    capturedBlob = file;
+    capturedType = type;
+    previewRetake.textContent = 'Cancel';
+    showPreview(url, type);
+});
 
 // Open camera
 document.getElementById('camBtn').addEventListener('click', async () => {
@@ -589,16 +603,27 @@ function hidePreview() {
 
 previewRetake.addEventListener('click', () => {
     hidePreview();
-    camOverlay.classList.add('active');
-    setMode(currentMode);
-    startCamera().catch(() => {});
+    if (previewRetake.textContent.includes('Retake')) {
+        camOverlay.classList.add('active');
+        setMode(currentMode);
+        startCamera().catch(() => {});
+    } else {
+        fileInput.value = '';
+        document.getElementById('fileName').textContent = '';
+    }
 });
 
 previewSend.addEventListener('click', async () => {
     if (!capturedBlob) return;
-    const ext = capturedType === 'image' ? '.jpg' : '.webm';
-    const filename = `capture_${Date.now()}${ext}`;
-    const file = new File([capturedBlob], filename, { type: capturedBlob.type });
+
+    let file;
+    if (capturedBlob instanceof File) {
+        file = capturedBlob;
+    } else {
+        const ext = capturedType === 'image' ? '.jpg' : '.webm';
+        const filename = `capture_${Date.now()}${ext}`;
+        file = new File([capturedBlob], filename, { type: capturedBlob.type });
+    }
 
     const formData = new FormData(messageForm);
     formData.set('file', file);
