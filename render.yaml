@@ -4,8 +4,8 @@ services:
     name: django-google-oauth
     env: python
     plan: free
-    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate --noinput && (python manage.py createsuperuser --noinput || true)"
-    startCommand: "gunicorn myproject.wsgi:application"
+    buildCommand: "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+    startCommand: "python manage.py migrate --noinput && gunicorn myproject.wsgi:application"
     envVars:
       - key: DEBUG
         value: false
