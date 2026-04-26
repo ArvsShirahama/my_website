@@ -14,6 +14,35 @@
 .msg-attachment { max-width: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
 .msg-attachment img { width: 100%; display: block; border-radius: 12px; }
 .msg-attachment video { width: 100%; display: block; border-radius: 12px; }
+.view-once-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 220px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    background: var(--surface-hover);
+    cursor: pointer;
+}
+.view-once-card .vo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+}
+.view-once-card .vo-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.view-once-card .vo-sub { font-size: 12px; color: var(--text-secondary); }
+.view-once-card.consumed {
+    opacity: 0.6;
+    cursor: default;
+    filter: grayscale(0.35);
+}
 .input-area { position: sticky; bottom: 0; padding: 12px 16px; background: var(--surface); border-top: 1px solid var(--border-light); display: flex; gap: 8px; align-items: center; }
 .input-area input[type="text"] { flex: 1; border-radius: 24px; padding: 10px 16px; font-size: 15px; }
 .attach-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--surface-hover); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; flex-shrink: 0; }
@@ -51,6 +80,21 @@
 .preview-overlay.active { display: flex; }
 .preview-media { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; min-height: 0; overflow: hidden; }
 .preview-media img, .preview-media video { max-width: 100%; max-height: 100%; border-radius: var(--radius-md); object-fit: contain; }
+.preview-options { display: flex; justify-content: center; padding: 0 16px 8px; }
+.view-once-toggle {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+}
+.view-once-toggle.active {
+    background: rgba(239, 68, 68, 0.14);
+    border-color: #EF4444;
+    color: #EF4444;
+}
 .preview-actions { display: flex; gap: 12px; padding: 16px; justify-content: center; flex-shrink: 0; }
 
 /* Media Viewer */
@@ -112,13 +156,23 @@
         {% for msg in messages %}
         <div class="msg {% if msg.sender == request.user %}msg-me{% else %}msg-other{% endif %}" data-id="{{ msg.id }}" data-is-sender="{% if msg.sender == request.user %}1{% else %}0{% endif %}">
             {% if msg.attachment %}
-            <div class="msg-attachment" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}">
-                {% if msg.attachment.attachment_type == 'image' %}
-                <img src="{{ msg.attachment.file.url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
+                {% if msg.is_view_once and not can_bypass_view_once %}
+                <div class="view-once-card {% if msg.is_consumed_for_user %}consumed{% endif %}" data-msg-id="{{ msg.id }}" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}" data-consumed="{% if msg.is_consumed_for_user %}1{% else %}0{% endif %}">
+                    <div class="vo-icon">{% if msg.attachment.attachment_type == 'video' %}🎬{% else %}📷{% endif %}</div>
+                    <div>
+                        <div class="vo-title">{% if msg.is_consumed_for_user %}Viewed{% else %}View Once{% endif %}</div>
+                        <div class="vo-sub">{% if msg.is_consumed_for_user %}Expired{% else %}Tap to view{% endif %}</div>
+                    </div>
+                </div>
                 {% else %}
-                <video controls src="{{ msg.attachment.file.url }}"></video>
+                <div class="msg-attachment" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}">
+                    {% if msg.attachment.attachment_type == 'image' %}
+                    <img src="{{ msg.attachment.file.url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
+                    {% else %}
+                    <video controls src="{{ msg.attachment.file.url }}"></video>
+                    {% endif %}
+                </div>
                 {% endif %}
-            </div>
             {% endif %}
             {% if msg.text %}
             <div class="msg-bubble">{{ msg.text }}</div>
@@ -145,6 +199,7 @@
     <form class="input-area" id="messageForm" enctype="multipart/form-data">
         {% csrf_token %}
         <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
+        <input type="hidden" name="view_once" id="viewOnceInput" value="0">
         <button type="button" class="cam-btn" id="camBtn" title="Open camera">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
@@ -202,6 +257,9 @@
 <!-- Preview Overlay -->
 <div class="preview-overlay" id="previewOverlay">
     <div class="preview-media" id="previewMedia"></div>
+    <div class="preview-options">
+        <button class="view-once-toggle" id="viewOnceToggle" type="button">View Once: Off</button>
+    </div>
     <div class="preview-actions">
         <button class="btn btn-secondary" id="previewRetake" style="min-width: 120px;">&#8634; Retake</button>
         <button class="btn" id="previewSend" style="min-width: 120px;">&#10148; Send</button>
@@ -229,6 +287,7 @@ const messagesArea = document.getElementById('messagesArea');
 const messageForm = document.getElementById('messageForm');
 const messageInput = document.getElementById('messageInput');
 const conversationId = '{{ conversation.id }}';
+const canBypassViewOnce = {% if can_bypass_view_once %}true{% else %}false{% endif %};
 let lastMessageId = '{{ messages.last.id }}';
 
 // Scroll to bottom
@@ -240,11 +299,12 @@ messageForm.addEventListener('submit', async function(e) {
     const formData = new FormData(this);
     
     if (!formData.get('text').trim() && !formData.get('file').size) return;
+    formData.set('view_once', '0');
     
     // Add optimistic message
     const text = formData.get('text');
     if (text) {
-        appendMessage(text, true, null, true);
+        appendMessage(text, true, null, true, null, false, false);
         messageInput.value = '';
     }
     
@@ -259,6 +319,10 @@ messageForm.addEventListener('submit', async function(e) {
             lastMessageId = data.id;
             const lastMsg = messagesArea.querySelector('.msg:last-child');
             if (lastMsg && !lastMsg.dataset.id) lastMsg.dataset.id = data.id;
+            if (lastMsg) {
+                lastMsg.dataset.viewOnce = data.is_view_once ? '1' : '0';
+                lastMsg.dataset.viewOnceConsumed = data.view_once_consumed ? '1' : '0';
+            }
         }
     } catch (err) {
         console.error('Send failed:', err);
@@ -273,18 +337,29 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
     div.className = `msg ${isMe ? 'msg-me' : 'msg-other'}`;
     if (id) div.dataset.id = id;
     div.dataset.isSender = isMe ? '1' : '0';
+    div.dataset.viewOnce = '0';
+    div.dataset.viewOnceConsumed = '0';
 
     let html = '';
-    if (attachment) {
+    if (attachment && attachment.type) {
         const url = attachment.url || '';
         const type = attachment.type || 'image';
-        html += `<div class="msg-attachment" data-media-url="${escapeHtml(url)}" data-media-type="${escapeHtml(type)}">`;
-        if (type === 'image') {
-            html += `<img src="${escapeHtml(url)}" alt="">`;
+        const isViewOnce = !!attachment.is_view_once;
+        const isConsumed = !!attachment.view_once_consumed;
+        div.dataset.viewOnce = isViewOnce ? '1' : '0';
+        div.dataset.viewOnceConsumed = isConsumed ? '1' : '0';
+
+        if (isViewOnce && !canBypassViewOnce) {
+            html += renderViewOnceCardHtml(id, url, type, isConsumed);
         } else {
-            html += `<video controls src="${escapeHtml(url)}"></video>`;
+            html += `<div class="msg-attachment" data-media-url="${escapeHtml(url)}" data-media-type="${escapeHtml(type)}">`;
+            if (type === 'image') {
+                html += `<img src="${escapeHtml(url)}" alt="">`;
+            } else {
+                html += `<video controls src="${escapeHtml(url)}"></video>`;
+            }
+            html += '</div>';
         }
-        html += '</div>';
     }
     if (text) html += `<div class="msg-bubble">${escapeHtml(text)}</div>`;
     html += `<div class="msg-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}${isMe ? ' <span>&#10003;</span>' : ''}</div>`;
@@ -296,6 +371,29 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
 
     const empty = messagesArea.querySelector('.empty-state');
     if (empty) empty.remove();
+}
+
+function renderViewOnceCardHtml(msgId, url, type, isConsumed) {
+    const icon = type === 'video' ? '🎬' : '📷';
+    const title = isConsumed ? 'Viewed' : 'View Once';
+    const sub = isConsumed ? 'Expired' : 'Tap to view';
+    return `<div class="view-once-card ${isConsumed ? 'consumed' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-url="${escapeHtml(url || '')}" data-media-type="${escapeHtml(type || 'image')}" data-consumed="${isConsumed ? '1' : '0'}"><div class="vo-icon">${icon}</div><div><div class="vo-title">${title}</div><div class="vo-sub">${sub}</div></div></div>`;
+}
+
+function markViewOnceCardConsumed(messageId) {
+    if (!messageId) return;
+    const msgEl = document.querySelector(`.msg[data-id="${messageId}"]`);
+    if (!msgEl) return;
+    msgEl.dataset.viewOnceConsumed = '1';
+    const card = msgEl.querySelector('.view-once-card');
+    if (!card) return;
+    card.dataset.consumed = '1';
+    card.dataset.mediaUrl = '';
+    card.classList.add('consumed');
+    const title = card.querySelector('.vo-title');
+    const sub = card.querySelector('.vo-sub');
+    if (title) title.textContent = 'Viewed';
+    if (sub) sub.textContent = 'Expired';
 }
 
 function escapeHtml(text) {
@@ -314,7 +412,12 @@ async function pollMessages() {
         if (data.messages && data.messages.length > 0) {
             data.messages.forEach(msg => {
                 if (!document.querySelector(`[data-id="${msg.id}"]`)) {
-                    appendMessage(msg.text, msg.is_me, msg.attachment, false, msg.id);
+                    const attachment = msg.attachment ? {
+                        ...msg.attachment,
+                        is_view_once: msg.is_view_once,
+                        view_once_consumed: msg.view_once_consumed
+                    } : null;
+                    appendMessage(msg.text, msg.is_me, attachment, false, msg.id);
                     lastMessageId = msg.id;
                 }
             });
@@ -346,6 +449,7 @@ const previewOverlay = document.getElementById('previewOverlay');
 const previewMedia = document.getElementById('previewMedia');
 const previewRetake = document.getElementById('previewRetake');
 const previewSend = document.getElementById('previewSend');
+const viewOnceToggle = document.getElementById('viewOnceToggle');
 
 let camStream = null;
 let facingMode = 'environment';
@@ -360,7 +464,33 @@ let isPaused = false;
 let capturedBlob = null;
 let capturedType = null;
 let countdownTimer = null;
+let isViewOnceEnabled = false;
 const fileInput = document.getElementById('fileInput');
+
+function resetViewOnceToggle() {
+    isViewOnceEnabled = false;
+    if (viewOnceToggle) {
+        viewOnceToggle.classList.remove('active');
+        viewOnceToggle.textContent = 'View Once: Off';
+    }
+    const hidden = document.getElementById('viewOnceInput');
+    if (hidden) hidden.value = '0';
+}
+
+function applyViewOnceToggle() {
+    if (!viewOnceToggle) return;
+    viewOnceToggle.classList.toggle('active', isViewOnceEnabled);
+    viewOnceToggle.textContent = isViewOnceEnabled ? 'View Once: On' : 'View Once: Off';
+    const hidden = document.getElementById('viewOnceInput');
+    if (hidden) hidden.value = isViewOnceEnabled ? '1' : '0';
+}
+
+if (viewOnceToggle) {
+    viewOnceToggle.addEventListener('click', () => {
+        isViewOnceEnabled = !isViewOnceEnabled;
+        applyViewOnceToggle();
+    });
+}
 
 // File attachment preview
 fileInput.addEventListener('change', () => {
@@ -371,6 +501,7 @@ fileInput.addEventListener('change', () => {
     const type = file.type.startsWith('video') ? 'video' : 'image';
     capturedBlob = file;
     capturedType = type;
+    resetViewOnceToggle();
     previewRetake.textContent = 'Cancel';
     showPreview(url, type);
 });
@@ -491,6 +622,7 @@ function doCapturePhoto() {
     canvas.toBlob(blob => {
         capturedBlob = blob;
         capturedType = 'image';
+        resetViewOnceToggle();
         closeCamera();
         showPreview(URL.createObjectURL(blob), 'image');
     }, 'image/jpeg', 0.92);
@@ -531,6 +663,7 @@ vidStart.addEventListener('click', async () => {
         const blob = new Blob(recordedChunks, { type: mimeType });
         capturedBlob = blob;
         capturedType = 'video';
+        resetViewOnceToggle();
         closeCamera();
         showPreview(URL.createObjectURL(blob), 'video');
     };
@@ -594,6 +727,7 @@ function showPreview(url, type) {
         video.autoplay = true;
         previewMedia.appendChild(video);
     }
+    applyViewOnceToggle();
     previewOverlay.classList.add('active');
 }
 
@@ -601,6 +735,7 @@ function hidePreview() {
     previewOverlay.classList.remove('active');
     capturedBlob = null;
     capturedType = null;
+    resetViewOnceToggle();
 }
 
 previewRetake.addEventListener('click', () => {
@@ -629,10 +764,13 @@ previewSend.addEventListener('click', async () => {
 
     const formData = new FormData(messageForm);
     formData.set('file', file);
+    formData.set('view_once', isViewOnceEnabled ? '1' : '0');
 
     const attachment = {
         type: capturedType,
-        url: URL.createObjectURL(capturedBlob)
+        url: URL.createObjectURL(capturedBlob),
+        is_view_once: isViewOnceEnabled,
+        view_once_consumed: false
     };
     appendMessage('', true, attachment, true);
     hidePreview();
@@ -647,7 +785,15 @@ previewSend.addEventListener('click', async () => {
         if (data.id) {
             lastMessageId = data.id;
             const lastMsg = messagesArea.querySelector('.msg:last-child');
-            if (lastMsg && !lastMsg.dataset.id) lastMsg.dataset.id = data.id;
+            if (lastMsg) {
+                if (!lastMsg.dataset.id) lastMsg.dataset.id = data.id;
+                lastMsg.dataset.viewOnce = data.is_view_once ? '1' : '0';
+                lastMsg.dataset.viewOnceConsumed = data.view_once_consumed ? '1' : '0';
+                const card = lastMsg.querySelector('.view-once-card');
+                if (card) {
+                    card.dataset.msgId = data.id;
+                }
+            }
         }
     } catch (err) {
         console.error('Send failed:', err);
@@ -660,9 +806,14 @@ const mediaViewerContent = document.getElementById('mediaViewerContent');
 const mediaViewerClose = document.getElementById('mediaViewerClose');
 const mediaViewerDownload = document.getElementById('mediaViewerDownload');
 let currentMediaUrl = null;
+let currentViewOnceMessageId = null;
+let currentViewerIsViewOnce = false;
 
-function openMediaViewer(url, type) {
+function openMediaViewer(url, type, options = {}) {
+    const { messageId = null, isViewOnce = false } = options;
     currentMediaUrl = url;
+    currentViewOnceMessageId = messageId;
+    currentViewerIsViewOnce = isViewOnce;
     mediaViewerContent.innerHTML = '';
     if (type === 'image') {
         const img = document.createElement('img');
@@ -681,17 +832,35 @@ function openMediaViewer(url, type) {
     mediaViewer.classList.add('active');
 }
 
-mediaViewerClose.addEventListener('click', () => {
+async function closeMediaViewerAndConsumeIfNeeded() {
+    const shouldConsume = currentViewerIsViewOnce && currentViewOnceMessageId && !canBypassViewOnce;
+    if (shouldConsume) {
+        try {
+            const response = await fetch('/chat/api/view-once/consume/' + currentViewOnceMessageId + '/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+            });
+            const data = await response.json();
+            if (data.success && data.consumed) {
+                markViewOnceCardConsumed(currentViewOnceMessageId);
+            }
+        } catch (err) {
+            console.error('View-once consume failed:', err);
+        }
+    }
+
     mediaViewerContent.innerHTML = '';
     mediaViewer.classList.remove('active');
     currentMediaUrl = null;
-});
+    currentViewOnceMessageId = null;
+    currentViewerIsViewOnce = false;
+}
+
+mediaViewerClose.addEventListener('click', closeMediaViewerAndConsumeIfNeeded);
 
 mediaViewer.addEventListener('click', (e) => {
     if (e.target === mediaViewer) {
-        mediaViewerContent.innerHTML = '';
-        mediaViewer.classList.remove('active');
-        currentMediaUrl = null;
+        closeMediaViewerAndConsumeIfNeeded();
     }
 });
 
@@ -827,11 +996,24 @@ messagesArea.addEventListener('click', (e) => {
         return;
     }
 
+    const viewOnceEl = e.target.closest('.view-once-card');
+    if (viewOnceEl) {
+        const msgId = viewOnceEl.dataset.msgId;
+        const consumed = viewOnceEl.dataset.consumed === '1';
+        if (consumed && !canBypassViewOnce) return;
+        const url = viewOnceEl.dataset.mediaUrl;
+        const type = viewOnceEl.dataset.mediaType;
+        if (url && type) {
+            openMediaViewer(url, type, { messageId: msgId, isViewOnce: true });
+        }
+        return;
+    }
+
     const mediaEl = e.target.closest('.msg-attachment');
     if (mediaEl && !e.target.closest('video')) {
         const url = mediaEl.dataset.mediaUrl;
         const type = mediaEl.dataset.mediaType;
-        if (url && type) openMediaViewer(url, type);
+        if (url && type) openMediaViewer(url, type, { isViewOnce: false });
     }
 });
 </script>

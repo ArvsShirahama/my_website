@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/send/<uuid:conversation_id>/', views_chat.send_message, name='send_message'),
     path('api/messages/<uuid:conversation_id>/', views_chat.get_messages, name='get_messages'),
     path('api/delete-message/<uuid:message_id>/', views_chat.delete_message, name='delete_message'),
+    path('api/view-once/consume/<uuid:message_id>/', views_chat.consume_view_once_media, name='consume_view_once_media'),
     
     # Admin Dashboard
     path('admin/dashboard/', views_admin.admin_dashboard, name='admin_dashboard'),

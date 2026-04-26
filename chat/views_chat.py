@@ -12,6 +12,16 @@ import uuid
 from .models import UserProfile, Conversation, Message, Attachment
 
 
+def can_bypass_view_once(user):
+    """Admins/superusers can re-open view-once media."""
+    profile = getattr(user, 'profile', None)
+    if getattr(user, 'is_superuser', False):
+        return True
+    if profile and hasattr(profile, 'is_admin_user'):
+        return profile.is_admin_user()
+    return False
+
+
 @login_required
 def chat_list(request):
     """Chat list with recent conversations"""
@@ -50,10 +60,18 @@ def chat_conversation(request, conversation_id):
     
     other = conversation.get_other_participant(user)
     conversation.messages.filter(sender=other, is_read=False).update(is_read=True, read_at=timezone.now())
-    messages = conversation.messages.filter(is_deleted=False).exclude(deleted_for=user).select_related('sender', 'attachment').order_by('created_at')
+    messages = conversation.messages.filter(is_deleted=False).exclude(deleted_for=user).select_related(
+        'sender', 'attachment'
+    ).prefetch_related('view_once_consumed_by').order_by('created_at')
+    bypass = can_bypass_view_once(user)
+    for msg in messages:
+        msg.is_consumed_for_user = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=user.id).exists()
     
     return render(request, 'chat/conversation.html', {
-        'conversation': conversation, 'other_user': other, 'messages': messages
+        'conversation': conversation,
+        'other_user': other,
+        'messages': messages,
+        'can_bypass_view_once': bypass,
     })
 
 
@@ -89,7 +107,8 @@ def send_message(request, conversation_id):
     text = request.POST.get('text', '').strip()
     if not text and 'file' not in request.FILES:
         return JsonResponse({'error': 'Message cannot be empty'}, status=400)
-    
+
+    view_once = request.POST.get('view_once', '0').lower() in ('1', 'true', 'on', 'yes')
     attachment = None
     if 'file' in request.FILES:
         uploaded_file = request.FILES['file']
@@ -102,13 +121,23 @@ def send_message(request, conversation_id):
             file=path, attachment_type=file_type, filename=uploaded_file.name,
             file_size=uploaded_file.size, mime_type=uploaded_file.content_type
         )
+    else:
+        view_once = False
     
-    message = Message.objects.create(conversation=conversation, sender=request.user, text=text, attachment=attachment)
+    message = Message.objects.create(
+        conversation=conversation,
+        sender=request.user,
+        text=text,
+        attachment=attachment,
+        is_view_once=view_once,
+    )
     conversation.last_message = message
     conversation.save()
     
     return JsonResponse({'id': str(message.id), 'text': message.text, 'sender': message.sender.username,
                          'created_at': message.created_at.isoformat(),
+                         'is_view_once': message.is_view_once,
+                         'view_once_consumed': False,
                          'attachment': {'type': attachment.attachment_type, 'url': attachment.file.url} if attachment else None})
 
 
@@ -120,20 +149,51 @@ def get_messages(request, conversation_id):
         return JsonResponse({'error': 'Not a participant'}, status=403)
 
     last_id = request.GET.get('last_id')
+    bypass = can_bypass_view_once(request.user)
     messages = conversation.messages.filter(is_deleted=False).exclude(deleted_for=request.user)
     if last_id:
         messages = messages.filter(id__gt=last_id)
 
-    messages = messages.select_related('sender', 'attachment').order_by('created_at')
+    messages = messages.select_related('sender', 'attachment').prefetch_related('view_once_consumed_by').order_by('created_at')
     data = []
     for msg in messages:
+        consumed = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=request.user.id).exists()
+        attachment_data = None
+        if msg.attachment:
+            attachment_data = {
+                'type': msg.attachment.attachment_type,
+                'url': None if consumed else msg.attachment.file.url,
+            }
         data.append({'id': str(msg.id), 'text': msg.text, 'sender': msg.sender.username,
                      'is_me': msg.sender == request.user, 'created_at': msg.created_at.isoformat(),
                      'is_read': msg.is_read,
-                     'attachment': {'type': msg.attachment.attachment_type if msg.attachment else None,
-                                    'url': msg.attachment.file.url if msg.attachment else None} if msg.attachment else None})
+                     'is_view_once': msg.is_view_once,
+                     'view_once_consumed': consumed,
+                     'attachment': attachment_data})
 
     return JsonResponse({'messages': data})
+
+
+@login_required
+def consume_view_once_media(request, message_id):
+    """Mark a view-once message as consumed for the current user."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    message = get_object_or_404(Message.objects.select_related('conversation', 'attachment'), id=message_id)
+    user = request.user
+
+    if user not in [message.conversation.participant1, message.conversation.participant2]:
+        return JsonResponse({'error': 'Not a participant'}, status=403)
+
+    if not message.is_view_once or not message.attachment:
+        return JsonResponse({'success': False, 'error': 'Not a view-once media message'}, status=400)
+
+    if can_bypass_view_once(user):
+        return JsonResponse({'success': True, 'consumed': False, 'bypassed': True})
+
+    message.view_once_consumed_by.add(user)
+    return JsonResponse({'success': True, 'consumed': True, 'bypassed': False})
 
 
 @login_required

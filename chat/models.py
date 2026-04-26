@@ -101,6 +101,12 @@ class Message(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_deleted = models.BooleanField(default=False)
     deleted_for = models.ManyToManyField(User, related_name='deleted_messages', blank=True)
+    is_view_once = models.BooleanField(default=False)
+    view_once_consumed_by = models.ManyToManyField(
+        User,
+        related_name='consumed_view_once_messages',
+        blank=True,
+    )
 
     class Meta:
         db_table = 'chat_message'
