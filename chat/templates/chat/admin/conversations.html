@@ -11,8 +11,31 @@
         </div>
         <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
     </div>
-    
+
     <div class="container" style="padding-top: 24px;">
+        <!-- Filters -->
+        <div class="card" style="padding: 16px; margin-bottom: 16px;">
+            <form method="get" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;">
+                <div>
+                    <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Participant</label>
+                    <select name="user" style="padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--surface); color: var(--text-primary); font-size: 14px;">
+                        <option value="" {% if not user_filter %}selected{% endif %}>All Users</option>
+                        {% for u in users %}
+                        <option value="{{ u.id }}" {% if user_filter == u.id|stringformat:"s" %}selected{% endif %}>{{ u.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Search</label>
+                    <input type="text" name="search" value="{{ search }}" placeholder="Username..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--surface); color: var(--text-primary); font-size: 14px;">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="submit" class="btn btn-primary" style="padding: 8px 16px; font-size: 13px;">Filter</button>
+                    <a href="?" class="btn" style="padding: 8px 16px; font-size: 13px; text-decoration: none;">Clear</a>
+                </div>
+            </form>
+        </div>
+
         <div class="card" style="overflow: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
@@ -21,6 +44,7 @@
                         <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Messages</th>
                         <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Created</th>
                         <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Last Active</th>
+                        <th style="padding: 12px 16px; text-align: right; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -36,13 +60,29 @@
                         <td style="padding: 12px 16px; font-size: 13px;">{{ conv.message_count }}</td>
                         <td style="padding: 12px 16px; font-size: 12px; color: var(--text-muted); white-space: nowrap;">{{ conv.created_at|date:"M d, Y" }}</td>
                         <td style="padding: 12px 16px; font-size: 12px; color: var(--text-muted); white-space: nowrap;">{{ conv.updated_at|date:"M d, H:i" }}</td>
+                        <td style="padding: 12px 16px; text-align: right;">
+                            <a href="{% url 'admin_conversation_detail' conv.id %}" class="btn" style="padding: 6px 12px; font-size: 12px; text-decoration: none;">View Thread</a>
+                        </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" style="padding: 24px; text-align: center; color: var(--text-secondary);">No conversations found</td></tr>
+                    <tr><td colspan="5" style="padding: 24px; text-align: center; color: var(--text-secondary);">No conversations found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        {% if conversations.has_other_pages %}
+        <div style="display: flex; justify-content: center; gap: 8px; margin-top: 16px;">
+            {% if conversations.has_previous %}
+                <a href="?page={{ conversations.previous_page_number }}&user={{ user_filter }}&search={{ search|urlencode }}" class="btn" style="padding: 6px 12px; font-size: 13px; text-decoration: none;">Previous</a>
+            {% endif %}
+            <span style="padding: 6px 12px; font-size: 13px; color: var(--text-secondary);">Page {{ conversations.number }} of {{ conversations.paginator.num_pages }}</span>
+            {% if conversations.has_next %}
+                <a href="?page={{ conversations.next_page_number }}&user={{ user_filter }}&search={{ search|urlencode }}" class="btn" style="padding: 6px 12px; font-size: 13px; text-decoration: none;">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

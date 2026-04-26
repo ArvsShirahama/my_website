@@ -23,8 +23,12 @@ urlpatterns = [
     # Admin Dashboard
     path('admin/dashboard/', views_admin.admin_dashboard, name='admin_dashboard'),
     path('admin/users/', views_admin.admin_users, name='admin_users'),
+    path('admin/users/edit/<int:user_id>/', views_admin.admin_edit_user, name='admin_edit_user'),
+    path('admin/users/delete/<int:user_id>/', views_admin.admin_delete_user, name='admin_delete_user'),
     path('admin/messages/', views_admin.admin_messages, name='admin_messages'),
+    path('admin/messages/delete/<uuid:message_id>/', views_admin.admin_delete_message, name='admin_delete_message'),
     path('admin/conversations/', views_admin.admin_conversations, name='admin_conversations'),
+    path('admin/conversations/<uuid:conversation_id>/', views_admin.admin_conversation_detail, name='admin_conversation_detail'),
     path('admin/logs/', views_admin.admin_logs, name='admin_logs'),
     
     # Admin API

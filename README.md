@@ -7,6 +7,9 @@ A Django web application with Google OAuth authentication using django-allauth.
 - Traditional username/password authentication
 - Google OAuth social login
 - Admin panel access
+- One-to-one chat with real-time messaging
+- Media sharing (images and videos) with lightbox viewer
+- Message deletion (delete for me / delete for everyone)
 - Production-ready for Render deployment
 
 ## Project Structure

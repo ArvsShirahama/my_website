@@ -33,9 +33,17 @@
             </div>
         </div>
         
+        <!-- Role Badge -->
+        <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; color: var(--text-secondary);">Logged in as:</span>
+            <span style="padding: 2px 10px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: 600; background: var(--primary); color: #fff;">
+                {% if is_admin %}Admin{% else %}Staff{% endif %}
+            </span>
+        </div>
+
         <!-- Navigation -->
         <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
-            <a href="{% url 'admin_users' %}" class="btn btn-secondary">Users</a>
+            {% if is_admin %}<a href="{% url 'admin_users' %}" class="btn btn-secondary">Users</a>{% endif %}
             <a href="{% url 'admin_messages' %}" class="btn btn-secondary">Messages</a>
             <a href="{% url 'admin_conversations' %}" class="btn btn-secondary">Conversations</a>
             <a href="{% url 'admin_logs' %}" class="btn btn-secondary">Action Logs</a>

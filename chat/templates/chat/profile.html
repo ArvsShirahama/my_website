@@ -63,7 +63,7 @@
             <a href="{% url 'logout' %}" class="btn btn-danger" style="width: 100%;">Logout</a>
         </div>
         
-        {% if user.is_staff or user.is_superuser %}
+        {% if user.is_staff or user.is_superuser or user.profile.role == 'staff' or user.profile.role == 'admin' %}
         <div style="margin-top: 16px;">
             <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary" style="width: 100%;">Admin Dashboard</a>
         </div>

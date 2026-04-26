@@ -1,0 +1,141 @@
+{% extends 'chat/base.html' %}
+{% block title %}Conversation Detail{% endblock %}
+{% block content %}
+<div style="max-width:900px;margin:0 auto;">
+  <div class="app-bar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="{% url 'admin_conversations' %}" class="back-btn">&#8592;</a>
+      <h1>Conversation</h1>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+  </div>
+
+  <div class="container" style="padding-top:24px;">
+    <!-- Participants -->
+    <div class="card" style="margin-bottom:16px;padding:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="avatar">{{ participant1.username|first|upper }}</div>
+          <div>
+            <div style="font-weight:600;font-size:15px;">{{ participant1.username }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">{{ participant1.email }}</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);">&#8596;</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div>
+            <div style="font-weight:600;font-size:15px;">{{ participant2.username }}</div>
+            <div style="font-size:12px;color:var(--text-muted);">{{ participant2.email }}</div>
+          </div>
+          <div class="avatar">{{ participant2.username|first|upper }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card" style="margin-bottom:16px;padding:16px;">
+      <form method="get" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+        <div>
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Type</label>
+          <select name="type" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;">
+            <option value="" {% if not msg_type %}selected{% endif %}>All</option>
+            <option value="text" {% if msg_type == 'text' %}selected{% endif %}>Text</option>
+            <option value="image" {% if msg_type == 'image' %}selected{% endif %}>Image</option>
+            <option value="video" {% if msg_type == 'video' %}selected{% endif %}>Video</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">From</label>
+          <input type="date" name="date_from" value="{{ date_from }}" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">To</label>
+          <input type="date" name="date_to" value="{{ date_to }}" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;">
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Search</label>
+          <input type="text" name="keyword" value="{{ keyword }}" placeholder="Search messages..." style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="submit" class="btn btn-primary" style="padding:8px 16px;font-size:13px;">Filter</button>
+          <a href="?" class="btn" style="padding:8px 16px;font-size:13px;text-decoration:none;">Clear</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Messages -->
+    <div class="card" style="padding:16px;max-height:70vh;overflow-y:auto;" id="threadArea">
+      {% if messages %}
+        {% for msg in messages %}
+        <div style="display:flex;{% if msg.sender == participant1 %}justify-content:flex-start;{% else %}justify-content:flex-end;{% endif %}margin-bottom:12px;">
+          <div style="max-width:70%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.5;
+              {% if msg.sender == participant1 %}
+                background:var(--surface);color:var(--text-primary);border-bottom-left-radius:4px;
+              {% else %}
+                background:var(--primary);color:#fff;border-bottom-right-radius:4px;
+              {% endif %}">
+            {% if msg.attachment %}
+              <div style="margin-bottom:6px;">
+                {% if msg.attachment.attachment_type == 'image' %}
+                  <img src="{{ msg.attachment.file.url }}" alt="" style="max-width:200px;max-height:200px;border-radius:8px;display:block;cursor:pointer;" onclick="openMedia('{{ msg.attachment.file.url }}','image')">
+                {% else %}
+                  <video src="{{ msg.attachment.file.url }}" style="max-width:200px;max-height:200px;border-radius:8px;display:block;" controls onclick="event.stopPropagation()"></video>
+                {% endif %}
+                <div style="font-size:11px;margin-top:4px;{% if msg.sender == participant2 %}color:rgba(255,255,255,0.8);{% else %}color:var(--text-muted);{% endif %}">{{ msg.attachment.filename }}</div>
+              </div>
+            {% endif %}
+            {% if msg.text %}
+              <div>{{ msg.text }}</div>
+            {% endif %}
+            <div style="font-size:11px;margin-top:4px;{% if msg.sender == participant2 %}color:rgba(255,255,255,0.7);{% else %}color:var(--text-muted);{% endif %}">
+              {{ msg.sender.username }} &middot; {{ msg.created_at|date:"M d, H:i" }}
+              {% if msg.is_read %} &middot; Read{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <!-- Pagination -->
+        {% if messages.has_other_pages %}
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:16px;">
+          {% if messages.has_previous %}
+            <a href="?page={{ messages.previous_page_number }}&type={{ msg_type }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword|urlencode }}" class="btn" style="padding:6px 12px;font-size:13px;text-decoration:none;">Previous</a>
+          {% endif %}
+          <span style="padding:6px 12px;font-size:13px;color:var(--text-secondary);">Page {{ messages.number }} of {{ messages.paginator.num_pages }}</span>
+          {% if messages.has_next %}
+            <a href="?page={{ messages.next_page_number }}&type={{ msg_type }}&date_from={{ date_from }}&date_to={{ date_to }}&keyword={{ keyword|urlencode }}" class="btn" style="padding:6px 12px;font-size:13px;text-decoration:none;">Next</a>
+          {% endif %}
+        </div>
+        {% endif %}
+      {% else %}
+        <div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">No messages found</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Media Modal -->
+<div id="mediaModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:4000;align-items:center;justify-content:center;" onclick="closeMedia()">
+  <div style="position:relative;max-width:90%;max-height:90%;" onclick="event.stopPropagation()">
+    <button onclick="closeMedia()" style="position:absolute;top:-32px;right:0;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;">&times;</button>
+    <img id="mediaImg" src="" style="max-width:80vw;max-height:80vh;border-radius:8px;display:none;">
+    <video id="mediaVideo" src="" controls style="max-width:80vw;max-height:80vh;border-radius:8px;display:none;"></video>
+  </div>
+</div>
+
+<script>
+function openMedia(url, type) {
+  const modal = document.getElementById('mediaModal');
+  const img = document.getElementById('mediaImg');
+  const vid = document.getElementById('mediaVideo');
+  if (type === 'image') { img.src = url; img.style.display = 'block'; vid.style.display = 'none'; }
+  else { vid.src = url; vid.style.display = 'block'; img.style.display = 'none'; }
+  modal.style.display = 'flex';
+}
+function closeMedia() {
+  document.getElementById('mediaModal').style.display = 'none';
+  document.getElementById('mediaImg').src = '';
+  document.getElementById('mediaVideo').src = '';
+}
+</script>
+{% endblock %}

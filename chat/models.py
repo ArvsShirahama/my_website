@@ -11,11 +11,18 @@ class UserProfile(models.Model):
         ('dark', 'Dark'),
         ('system', 'System'),
     ]
-    
+
+    ROLE_CHOICES = [
+        ('user', 'User'),
+        ('staff', 'Staff'),
+        ('admin', 'Admin'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     bio = models.TextField(max_length=500, blank=True)
     theme_preference = models.CharField(max_length=10, choices=THEME_CHOICES, default='system')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
     last_seen = models.DateTimeField(default=timezone.now)
     is_online = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -26,6 +33,12 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
+
+    def is_staff_user(self):
+        return self.role in ('staff', 'admin') or self.user.is_staff
+
+    def is_admin_user(self):
+        return self.role == 'admin' or self.user.is_superuser
 
 
 class Conversation(models.Model):
