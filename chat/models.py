@@ -107,6 +107,7 @@ class Message(models.Model):
         related_name='consumed_view_once_messages',
         blank=True,
     )
+    is_photo_swap = models.BooleanField(default=False)
 
     class Meta:
         db_table = 'chat_message'

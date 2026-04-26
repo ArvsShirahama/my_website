@@ -128,6 +128,99 @@
     border-color: #EF4444;
     color: #EF4444;
 }
+.photo-swap-toggle {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.photo-swap-toggle.active {
+    background: rgba(99, 102, 241, 0.16);
+    border-color: #6366F1;
+    color: #6366F1;
+}
+.photo-swap-locked {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #1f2937, #4b5563);
+    cursor: not-allowed;
+    margin-bottom: 4px;
+    user-select: none;
+}
+.photo-swap-locked.video { height: 130px; }
+.photo-swap-locked .swap-blur {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(28px) brightness(0.55) saturate(1.1);
+    transform: scale(1.15);
+}
+.photo-swap-locked .swap-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 6px;
+    padding: 12px;
+    color: #fff;
+    background: rgba(0,0,0,0.35);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.photo-swap-locked .swap-icon {
+    font-size: 28px;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+.photo-swap-locked .swap-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.photo-swap-locked .swap-status {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: rgba(99, 102, 241, 0.85);
+    color: #fff;
+    padding: 3px 8px;
+    border-radius: 999px;
+    margin-top: 6px;
+}
+.photo-swap-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6366F1;
+    background: rgba(99,102,241,0.12);
+    border-radius: 999px;
+    padding: 2px 8px;
+    margin-top: 4px;
+    width: max-content;
+}
+.swap-unlock-anim {
+    animation: swapFadeIn 0.45s ease;
+}
+@keyframes swapFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
 .preview-actions { display: flex; gap: 12px; padding: 16px; justify-content: center; flex-shrink: 0; }
 
 /* Media Viewer */
@@ -456,7 +549,16 @@
         {% for msg in messages %}
         <div class="msg {% if msg.sender == request.user %}msg-me{% else %}msg-other{% endif %}" data-id="{{ msg.id }}" data-is-sender="{% if msg.sender == request.user %}1{% else %}0{% endif %}">
             {% if msg.attachment %}
-                {% if msg.is_view_once and not can_bypass_view_once %}
+                {% if msg.is_swap_locked_for_user %}
+                <div class="photo-swap-locked {% if msg.attachment.attachment_type == 'video' %}video{% endif %}" data-msg-id="{{ msg.id }}" data-media-type="{{ msg.attachment.attachment_type }}">
+                    <div class="swap-blur"></div>
+                    <div class="swap-overlay">
+                        <div class="swap-icon">&#128274;</div>
+                        <div class="swap-title">{% if msg.attachment.attachment_type == 'video' %}Send a video to unlock this video{% else %}Send a photo to unlock this photo{% endif %}</div>
+                        <div class="swap-status">Waiting for swap</div>
+                    </div>
+                </div>
+                {% elif msg.is_view_once and not can_bypass_view_once %}
                 <div class="view-once-card {% if msg.is_consumed_for_user %}consumed{% endif %}" data-msg-id="{{ msg.id }}" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}" data-consumed="{% if msg.is_consumed_for_user %}1{% else %}0{% endif %}">
                     <div class="vo-icon">{% if msg.attachment.attachment_type == 'video' %}🎬{% else %}📷{% endif %}</div>
                     <div>
@@ -475,6 +577,9 @@
                     </div>
                     {% endif %}
                 </div>
+                {% if msg.is_photo_swap and msg.sender == request.user %}
+                <span class="photo-swap-badge">&#128274; PhotoSwap</span>
+                {% endif %}
                 {% endif %}
             {% endif %}
             {% if msg.text %}
@@ -503,6 +608,7 @@
         {% csrf_token %}
         <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
         <input type="hidden" name="view_once" id="viewOnceInput" value="0">
+        <input type="hidden" name="photo_swap" id="photoSwapInput" value="0">
         <button type="button" class="cam-btn" id="camBtn" title="Open camera">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
@@ -562,6 +668,7 @@
     <div class="preview-media" id="previewMedia"></div>
     <div class="preview-options">
         <button class="view-once-toggle" id="viewOnceToggle" type="button">View Once: Off</button>
+        <button class="photo-swap-toggle" id="photoSwapToggle" type="button" title="PhotoSwap: receiver must reply with the same media type to view this"><span>&#128274;</span> PhotoSwap: Off</button>
     </div>
     <div class="preview-actions">
         <button class="btn btn-secondary" id="previewRetake" style="min-width: 120px;">&#8634; Retake</button>
@@ -745,7 +852,14 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
         div.dataset.viewOnce = isViewOnce ? '1' : '0';
         div.dataset.viewOnceConsumed = isConsumed ? '1' : '0';
 
-        if (isViewOnce && !canBypassViewOnce) {
+        const isPhotoSwap = !!attachment.is_photo_swap;
+        const isSwapLocked = !!attachment.is_swap_locked;
+        div.dataset.photoSwap = isPhotoSwap ? '1' : '0';
+        div.dataset.swapLocked = isSwapLocked ? '1' : '0';
+
+        if (isSwapLocked) {
+            html += renderPhotoSwapLockedHtml(id, type);
+        } else if (isViewOnce && !canBypassViewOnce) {
             html += renderViewOnceCardHtml(id, url, type, isConsumed);
         } else {
             html += `<div class="msg-attachment" data-media-url="${escapeHtml(url)}" data-media-type="${escapeHtml(type)}">`;
@@ -755,6 +869,9 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
                 html += `<div class="msg-video-thumb"><video src="${escapeHtml(url)}" preload="metadata" muted playsinline></video><div class="msg-video-play"><span>&#9658;</span></div></div>`;
             }
             html += '</div>';
+            if (isPhotoSwap && isMe) {
+                html += `<span class="photo-swap-badge">&#128274; PhotoSwap</span>`;
+            }
         }
     }
     if (text) html += `<div class="msg-bubble">${escapeHtml(text)}</div>`;
@@ -767,6 +884,35 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
 
     const empty = messagesArea.querySelector('.empty-state');
     if (empty) empty.remove();
+}
+
+function renderPhotoSwapLockedHtml(msgId, type) {
+    const isVideo = type === 'video';
+    const title = isVideo ? 'Send a video to unlock this video' : 'Send a photo to unlock this photo';
+    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}"><div class="swap-blur"></div><div class="swap-overlay"><div class="swap-icon">&#128274;</div><div class="swap-title">${title}</div><div class="swap-status">Waiting for swap</div></div></div>`;
+}
+
+function unlockPhotoSwapMessage(messageId, mediaUrl) {
+    if (!messageId) return;
+    const msgEl = document.querySelector(`.msg[data-id="${messageId}"]`);
+    if (!msgEl) return;
+    const lockedCard = msgEl.querySelector('.photo-swap-locked');
+    if (!lockedCard) return;
+    const type = lockedCard.dataset.mediaType || 'image';
+    const url = mediaUrl || lockedCard.dataset.mediaUrl || '';
+    if (!url) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-attachment swap-unlock-anim';
+    wrapper.dataset.mediaUrl = url;
+    wrapper.dataset.mediaType = type;
+    if (type === 'image') {
+        wrapper.innerHTML = `<img src="${escapeHtml(url)}" alt="">`;
+    } else {
+        wrapper.innerHTML = `<div class="msg-video-thumb"><video src="${escapeHtml(url)}" preload="metadata" muted playsinline></video><div class="msg-video-play"><span>&#9658;</span></div></div>`;
+    }
+    lockedCard.replaceWith(wrapper);
+    msgEl.dataset.swapLocked = '0';
 }
 
 function renderViewOnceCardHtml(msgId, url, type, isConsumed) {
@@ -801,7 +947,14 @@ function escapeHtml(text) {
 // Polling for new messages
 async function pollMessages() {
     try {
-        const url = `/chat/api/messages/${conversationId}/?last_id=${lastMessageId || ''}`;
+        const lockedIds = Array.from(document.querySelectorAll('.msg[data-swap-locked="1"]'))
+            .map(el => el.dataset.id)
+            .filter(Boolean)
+            .join(',');
+        const params = new URLSearchParams();
+        if (lastMessageId) params.set('last_id', lastMessageId);
+        if (lockedIds) params.set('locked_ids', lockedIds);
+        const url = `/chat/api/messages/${conversationId}/?${params.toString()}`;
         const response = await fetch(url);
         const data = await response.json();
         
@@ -811,11 +964,18 @@ async function pollMessages() {
                     const attachment = msg.attachment ? {
                         ...msg.attachment,
                         is_view_once: msg.is_view_once,
-                        view_once_consumed: msg.view_once_consumed
+                        view_once_consumed: msg.view_once_consumed,
+                        is_photo_swap: msg.is_photo_swap,
+                        is_swap_locked: msg.is_swap_locked
                     } : null;
                     appendMessage(msg.text, msg.is_me, attachment, false, msg.id);
                     lastMessageId = msg.id;
                 }
+            });
+        }
+        if (Array.isArray(data.swap_unlocks)) {
+            data.swap_unlocks.forEach(item => {
+                if (item && item.id) unlockPhotoSwapMessage(item.id, item.url);
             });
         }
     } catch (err) {
@@ -846,6 +1006,7 @@ const previewMedia = document.getElementById('previewMedia');
 const previewRetake = document.getElementById('previewRetake');
 const previewSend = document.getElementById('previewSend');
 const viewOnceToggle = document.getElementById('viewOnceToggle');
+const photoSwapToggle = document.getElementById('photoSwapToggle');
 
 let camStream = null;
 let facingMode = 'environment';
@@ -861,6 +1022,7 @@ let capturedBlob = null;
 let capturedType = null;
 let countdownTimer = null;
 let isViewOnceEnabled = false;
+let isPhotoSwapEnabled = false;
 const fileInput = document.getElementById('fileInput');
 
 function resetViewOnceToggle() {
@@ -881,10 +1043,36 @@ function applyViewOnceToggle() {
     if (hidden) hidden.value = isViewOnceEnabled ? '1' : '0';
 }
 
+function resetPhotoSwapToggle() {
+    isPhotoSwapEnabled = false;
+    if (photoSwapToggle) {
+        photoSwapToggle.classList.remove('active');
+        photoSwapToggle.innerHTML = '<span>&#128274;</span> PhotoSwap: Off';
+    }
+    const hidden = document.getElementById('photoSwapInput');
+    if (hidden) hidden.value = '0';
+}
+
+function applyPhotoSwapToggle() {
+    if (!photoSwapToggle) return;
+    photoSwapToggle.classList.toggle('active', isPhotoSwapEnabled);
+    photoSwapToggle.innerHTML = isPhotoSwapEnabled
+        ? '<span>&#128274;</span> PhotoSwap: On'
+        : '<span>&#128274;</span> PhotoSwap: Off';
+    const hidden = document.getElementById('photoSwapInput');
+    if (hidden) hidden.value = isPhotoSwapEnabled ? '1' : '0';
+}
+
 if (viewOnceToggle) {
     viewOnceToggle.addEventListener('click', () => {
         isViewOnceEnabled = !isViewOnceEnabled;
         applyViewOnceToggle();
+    });
+}
+if (photoSwapToggle) {
+    photoSwapToggle.addEventListener('click', () => {
+        isPhotoSwapEnabled = !isPhotoSwapEnabled;
+        applyPhotoSwapToggle();
     });
 }
 
@@ -898,6 +1086,7 @@ fileInput.addEventListener('change', () => {
     capturedBlob = file;
     capturedType = type;
     resetViewOnceToggle();
+    resetPhotoSwapToggle();
     previewRetake.textContent = 'Cancel';
     showPreview(url, type);
 });
@@ -1019,6 +1208,7 @@ function doCapturePhoto() {
         capturedBlob = blob;
         capturedType = 'image';
         resetViewOnceToggle();
+        resetPhotoSwapToggle();
         closeCamera();
         showPreview(URL.createObjectURL(blob), 'image');
     }, 'image/jpeg', 0.92);
@@ -1060,6 +1250,7 @@ vidStart.addEventListener('click', async () => {
         capturedBlob = blob;
         capturedType = 'video';
         resetViewOnceToggle();
+        resetPhotoSwapToggle();
         closeCamera();
         showPreview(URL.createObjectURL(blob), 'video');
     };
@@ -1124,6 +1315,7 @@ function showPreview(url, type) {
         previewMedia.appendChild(video);
     }
     applyViewOnceToggle();
+    applyPhotoSwapToggle();
     previewOverlay.classList.add('active');
 }
 
@@ -1132,6 +1324,7 @@ function hidePreview() {
     capturedBlob = null;
     capturedType = null;
     resetViewOnceToggle();
+    resetPhotoSwapToggle();
 }
 
 previewRetake.addEventListener('click', () => {
@@ -1161,12 +1354,15 @@ previewSend.addEventListener('click', async () => {
     const formData = new FormData(messageForm);
     formData.set('file', file);
     formData.set('view_once', isViewOnceEnabled ? '1' : '0');
+    formData.set('photo_swap', isPhotoSwapEnabled ? '1' : '0');
 
     const attachment = {
         type: capturedType,
         url: URL.createObjectURL(capturedBlob),
         is_view_once: isViewOnceEnabled,
-        view_once_consumed: false
+        view_once_consumed: false,
+        is_photo_swap: isPhotoSwapEnabled,
+        is_swap_locked: false
     };
     appendMessage('', true, attachment, true);
     hidePreview();
@@ -1185,11 +1381,17 @@ previewSend.addEventListener('click', async () => {
                 if (!lastMsg.dataset.id) lastMsg.dataset.id = data.id;
                 lastMsg.dataset.viewOnce = data.is_view_once ? '1' : '0';
                 lastMsg.dataset.viewOnceConsumed = data.view_once_consumed ? '1' : '0';
+                lastMsg.dataset.photoSwap = data.is_photo_swap ? '1' : '0';
                 const card = lastMsg.querySelector('.view-once-card');
                 if (card) {
                     card.dataset.msgId = data.id;
                 }
             }
+        }
+        if (Array.isArray(data.unlocked_swap_messages)) {
+            data.unlocked_swap_messages.forEach(item => {
+                if (item && item.id) unlockPhotoSwapMessage(item.id, item.url);
+            });
         }
     } catch (err) {
         console.error('Send failed:', err);

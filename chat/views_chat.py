@@ -22,6 +22,24 @@ def can_bypass_view_once(user):
     return False
 
 
+def is_photo_swap_locked_for(msg, user):
+    """A PhotoSwap message is locked for ``user`` until they have sent a
+    matching-type media (image-for-image, video-for-video) AFTER the
+    message was created. The sender always sees their own media unlocked.
+    """
+    if not msg.is_photo_swap or not msg.attachment:
+        return False
+    if msg.sender_id == user.id:
+        return False
+    return not Message.objects.filter(
+        conversation_id=msg.conversation_id,
+        sender=user,
+        created_at__gt=msg.created_at,
+        attachment__attachment_type=msg.attachment.attachment_type,
+        is_deleted=False,
+    ).exists()
+
+
 @login_required
 def chat_list(request):
     """Chat list with recent conversations"""
@@ -66,6 +84,7 @@ def chat_conversation(request, conversation_id):
     bypass = can_bypass_view_once(user)
     for msg in messages:
         msg.is_consumed_for_user = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=user.id).exists()
+        msg.is_swap_locked_for_user = is_photo_swap_locked_for(msg, user)
     
     theme = ConversationTheme.objects.filter(user=user, conversation=conversation).first()
     theme_data = serialize_theme(theme)
@@ -134,6 +153,7 @@ def send_message(request, conversation_id):
         return JsonResponse({'error': 'Message cannot be empty'}, status=400)
 
     view_once = request.POST.get('view_once', '0').lower() in ('1', 'true', 'on', 'yes')
+    photo_swap = request.POST.get('photo_swap', '0').lower() in ('1', 'true', 'on', 'yes')
     attachment = None
     if 'file' in request.FILES:
         uploaded_file = request.FILES['file']
@@ -141,29 +161,54 @@ def send_message(request, conversation_id):
         ext = os.path.splitext(uploaded_file.name)[1]
         filename = f"{uuid.uuid4()}{ext}"
         path = default_storage.save(f'attachments/{filename}', ContentFile(uploaded_file.read()))
-        
+
         attachment = Attachment.objects.create(
             file=path, attachment_type=file_type, filename=uploaded_file.name,
             file_size=uploaded_file.size, mime_type=uploaded_file.content_type
         )
     else:
+        # Flags only meaningful with a media attachment
         view_once = False
-    
+        photo_swap = False
+
     message = Message.objects.create(
         conversation=conversation,
         sender=request.user,
         text=text,
         attachment=attachment,
         is_view_once=view_once,
+        is_photo_swap=photo_swap,
     )
     conversation.last_message = message
     conversation.save()
-    
+
+    # If this send is a media of matching type, it unlocks any prior PhotoSwap
+    # messages from the OTHER user that were waiting for this exact type.
+    unlocked_ids = []
+    if attachment:
+        other = conversation.get_other_participant(request.user)
+        unlocked_qs = Message.objects.filter(
+            conversation=conversation,
+            sender=other,
+            is_photo_swap=True,
+            is_deleted=False,
+            attachment__attachment_type=attachment.attachment_type,
+            created_at__lt=message.created_at,
+        ).values_list('id', 'attachment__file')
+        for msg_id, file_path in unlocked_qs:
+            unlocked_ids.append({
+                'id': str(msg_id),
+                'url': default_storage.url(file_path) if file_path else None,
+            })
+
     return JsonResponse({'id': str(message.id), 'text': message.text, 'sender': message.sender.username,
                          'created_at': message.created_at.isoformat(),
                          'is_view_once': message.is_view_once,
                          'view_once_consumed': False,
-                         'attachment': {'type': attachment.attachment_type, 'url': attachment.file.url} if attachment else None})
+                         'is_photo_swap': message.is_photo_swap,
+                         'is_swap_locked': False,
+                         'attachment': {'type': attachment.attachment_type, 'url': attachment.file.url} if attachment else None,
+                         'unlocked_swap_messages': unlocked_ids})
 
 
 @login_required
@@ -183,20 +228,43 @@ def get_messages(request, conversation_id):
     data = []
     for msg in messages:
         consumed = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=request.user.id).exists()
+        swap_locked = is_photo_swap_locked_for(msg, request.user)
         attachment_data = None
         if msg.attachment:
             attachment_data = {
                 'type': msg.attachment.attachment_type,
-                'url': None if consumed else msg.attachment.file.url,
+                'url': None if (consumed or swap_locked) else msg.attachment.file.url,
             }
         data.append({'id': str(msg.id), 'text': msg.text, 'sender': msg.sender.username,
                      'is_me': msg.sender == request.user, 'created_at': msg.created_at.isoformat(),
                      'is_read': msg.is_read,
                      'is_view_once': msg.is_view_once,
                      'view_once_consumed': consumed,
+                     'is_photo_swap': msg.is_photo_swap,
+                     'is_swap_locked': swap_locked,
                      'attachment': attachment_data})
 
-    return JsonResponse({'messages': data})
+    # Allow client to report messages it currently renders as locked.
+    # We send back any of those that are now unlocked (e.g. because
+    # the OTHER user just sent a matching-type media via another tab).
+    locked_param = request.GET.get('locked_ids', '').strip()
+    swap_unlocks = []
+    if locked_param:
+        candidate_ids = [s for s in locked_param.split(',') if s]
+        candidates = Message.objects.filter(
+            conversation=conversation,
+            id__in=candidate_ids,
+            is_photo_swap=True,
+            is_deleted=False,
+        ).select_related('attachment')
+        for msg in candidates:
+            if not is_photo_swap_locked_for(msg, request.user):
+                swap_unlocks.append({
+                    'id': str(msg.id),
+                    'url': msg.attachment.file.url if msg.attachment else None,
+                })
+
+    return JsonResponse({'messages': data, 'swap_unlocks': swap_unlocks})
 
 
 @login_required
@@ -213,6 +281,10 @@ def consume_view_once_media(request, message_id):
 
     if not message.is_view_once or not message.attachment:
         return JsonResponse({'success': False, 'error': 'Not a view-once media message'}, status=400)
+
+    if message.sender == user:
+        # Sender previewing their own message must not be marked as a consumer.
+        return JsonResponse({'success': True, 'consumed': False, 'is_sender': True})
 
     if can_bypass_view_once(user):
         return JsonResponse({'success': True, 'consumed': False, 'bypassed': True})
