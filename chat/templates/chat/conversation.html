@@ -13,7 +13,39 @@
 .msg-time { font-size: 11px; color: var(--text-muted); padding: 0 4px; }
 .msg-attachment { max-width: 200px; border-radius: 12px; overflow: hidden; margin-bottom: 4px; }
 .msg-attachment img { width: 100%; display: block; border-radius: 12px; }
-.msg-attachment video { width: 100%; display: block; border-radius: 12px; }
+.msg-video-thumb {
+    position: relative;
+    width: 200px;
+    height: 130px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+}
+.msg-video-thumb video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: brightness(0.86);
+}
+.msg-video-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.msg-video-play span {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.56);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
 .view-once-card {
     display: flex;
     align-items: center;
@@ -102,9 +134,154 @@
 .media-viewer.active { display: flex; }
 .media-viewer img { max-width: 95%; max-height: 90%; object-fit: contain; border-radius: 8px; cursor: zoom-in; transition: transform 0.3s ease; }
 .media-viewer img.zoomed { cursor: zoom-out; transform: scale(1.5); }
-.media-viewer video { max-width: 95%; max-height: 90%; border-radius: 8px; }
-.media-viewer-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); z-index: 10; }
+.media-viewer-close { position: absolute; top: 16px; left: 16px; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); z-index: 22; }
 .media-viewer-download { position: absolute; bottom: 24px; right: 16px; padding: 10px 20px; border-radius: 24px; border: none; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.media-viewer-video {
+    width: min(100vw, 980px);
+    height: min(100vh, 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+}
+.media-viewer-video video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+.media-video-ui {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+.media-video-ui.hidden {
+    opacity: 0;
+}
+.media-video-ui * {
+    pointer-events: auto;
+}
+.media-video-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 8px 72px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+}
+.media-video-meta {
+    color: #fff;
+    font-size: 13px;
+    opacity: 0.9;
+}
+.media-video-menu-wrap {
+    position: relative;
+}
+.media-video-menu-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+}
+.media-video-menu {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    min-width: 120px;
+    background: rgba(20,20,20,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    overflow: hidden;
+    display: none;
+}
+.media-video-menu.active {
+    display: block;
+}
+.media-video-menu button {
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: #fff;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.media-video-menu button:hover {
+    background: rgba(255,255,255,0.12);
+}
+.media-video-center-play {
+    align-self: center;
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.46);
+    color: #fff;
+    font-size: 34px;
+    cursor: pointer;
+    display: none;
+}
+.media-video-center-play.show {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.media-video-bottom {
+    padding: 10px 12px 14px;
+    background: linear-gradient(to top, rgba(0,0,0,0.72), transparent);
+}
+.media-video-progress {
+    width: 100%;
+    margin-bottom: 10px;
+}
+.media-video-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.media-video-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.16);
+    color: #fff;
+    cursor: pointer;
+    font-size: 15px;
+}
+.media-video-time {
+    color: #fff;
+    font-size: 12px;
+    min-width: 88px;
+}
+.media-video-volume {
+    width: 90px;
+}
+.media-video-seek-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    z-index: 5;
+}
+.media-video-seek-zone.left {
+    left: 0;
+}
+.media-video-seek-zone.right {
+    right: 0;
+}
 
 /* Message action menu */
 .msg { position: relative; }
@@ -169,7 +346,10 @@
                     {% if msg.attachment.attachment_type == 'image' %}
                     <img src="{{ msg.attachment.file.url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
                     {% else %}
-                    <video controls src="{{ msg.attachment.file.url }}"></video>
+                    <div class="msg-video-thumb">
+                        <video src="{{ msg.attachment.file.url }}" preload="metadata" muted playsinline></video>
+                        <div class="msg-video-play"><span>&#9658;</span></div>
+                    </div>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -270,6 +450,29 @@
 <div class="media-viewer" id="mediaViewer">
     <button class="media-viewer-close" id="mediaViewerClose">&#10005;</button>
     <div id="mediaViewerContent"></div>
+    <div class="media-video-ui hidden" id="mediaVideoUI">
+        <div class="media-video-top">
+            <div class="media-video-meta" id="mediaVideoMeta">Video message</div>
+            <div class="media-video-menu-wrap">
+                <button class="media-video-menu-btn" id="mediaVideoMenuBtn">&#8942;</button>
+                <div class="media-video-menu" id="mediaVideoMenu">
+                    <button type="button" id="mediaVideoDownloadAction">Download</button>
+                </div>
+            </div>
+        </div>
+        <button class="media-video-center-play" id="mediaVideoCenterPlay">&#9658;</button>
+        <div class="media-video-bottom">
+            <input class="media-video-progress" id="mediaVideoSeek" type="range" min="0" max="100" value="0">
+            <div class="media-video-controls">
+                <button class="media-video-btn" id="mediaVideoPlayPause" type="button">&#9658;</button>
+                <div class="media-video-time" id="mediaVideoTime">0:00 / 0:00</div>
+                <button class="media-video-btn" id="mediaVideoMute" type="button">&#128266;</button>
+                <input class="media-video-volume" id="mediaVideoVolume" type="range" min="0" max="1" step="0.05" value="1">
+                <button class="media-video-btn" id="mediaVideoFullscreen" type="button">&#9974;</button>
+                <button class="media-video-btn" id="mediaVideoReplay" type="button" style="display:none;">&#8635;</button>
+            </div>
+        </div>
+    </div>
     <button class="media-viewer-download" id="mediaViewerDownload">Download</button>
 </div>
 
@@ -304,7 +507,7 @@ messageForm.addEventListener('submit', async function(e) {
     // Add optimistic message
     const text = formData.get('text');
     if (text) {
-        appendMessage(text, true, null, true, null, false, false);
+        appendMessage(text, true, null, true);
         messageInput.value = '';
     }
     
@@ -356,7 +559,7 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
             if (type === 'image') {
                 html += `<img src="${escapeHtml(url)}" alt="">`;
             } else {
-                html += `<video controls src="${escapeHtml(url)}"></video>`;
+                html += `<div class="msg-video-thumb"><video src="${escapeHtml(url)}" preload="metadata" muted playsinline></video><div class="msg-video-play"><span>&#9658;</span></div></div>`;
             }
             html += '</div>';
         }
@@ -805,31 +1008,242 @@ const mediaViewer = document.getElementById('mediaViewer');
 const mediaViewerContent = document.getElementById('mediaViewerContent');
 const mediaViewerClose = document.getElementById('mediaViewerClose');
 const mediaViewerDownload = document.getElementById('mediaViewerDownload');
+const mediaVideoUI = document.getElementById('mediaVideoUI');
+const mediaVideoMeta = document.getElementById('mediaVideoMeta');
+const mediaVideoMenuBtn = document.getElementById('mediaVideoMenuBtn');
+const mediaVideoMenu = document.getElementById('mediaVideoMenu');
+const mediaVideoDownloadAction = document.getElementById('mediaVideoDownloadAction');
+const mediaVideoCenterPlay = document.getElementById('mediaVideoCenterPlay');
+const mediaVideoSeek = document.getElementById('mediaVideoSeek');
+const mediaVideoPlayPause = document.getElementById('mediaVideoPlayPause');
+const mediaVideoTime = document.getElementById('mediaVideoTime');
+const mediaVideoMute = document.getElementById('mediaVideoMute');
+const mediaVideoVolume = document.getElementById('mediaVideoVolume');
+const mediaVideoFullscreen = document.getElementById('mediaVideoFullscreen');
+const mediaVideoReplay = document.getElementById('mediaVideoReplay');
 let currentMediaUrl = null;
 let currentViewOnceMessageId = null;
 let currentViewerIsViewOnce = false;
+let viewerVideoEl = null;
+let videoUiAutoHideTimer = null;
+let videoUiVisible = true;
+let lastTapAt = 0;
 
 function openMediaViewer(url, type, options = {}) {
-    const { messageId = null, isViewOnce = false } = options;
+    const { messageId = null, isViewOnce = false, metaText = 'Video message' } = options;
     currentMediaUrl = url;
     currentViewOnceMessageId = messageId;
     currentViewerIsViewOnce = isViewOnce;
     mediaViewerContent.innerHTML = '';
+    teardownCustomVideoViewer();
+
     if (type === 'image') {
         const img = document.createElement('img');
         img.src = url;
         img.onclick = () => img.classList.toggle('zoomed');
         mediaViewerContent.appendChild(img);
+        mediaVideoUI.classList.add('hidden');
         mediaViewerDownload.style.display = 'block';
     } else {
-        const video = document.createElement('video');
-        video.src = url;
-        video.controls = true;
-        video.autoplay = true;
-        mediaViewerContent.appendChild(video);
+        setupCustomVideoViewer(url, metaText);
         mediaViewerDownload.style.display = 'none';
     }
     mediaViewer.classList.add('active');
+}
+
+function setupCustomVideoViewer(url, metaText) {
+    const wrap = document.createElement('div');
+    wrap.className = 'media-viewer-video';
+
+    const video = document.createElement('video');
+    video.src = url;
+    video.preload = 'metadata';
+    video.playsInline = true;
+    video.autoplay = true;
+    wrap.appendChild(video);
+
+    const leftSeek = document.createElement('div');
+    leftSeek.className = 'media-video-seek-zone left';
+    const rightSeek = document.createElement('div');
+    rightSeek.className = 'media-video-seek-zone right';
+    wrap.appendChild(leftSeek);
+    wrap.appendChild(rightSeek);
+
+    mediaViewerContent.appendChild(wrap);
+    viewerVideoEl = video;
+    mediaVideoMeta.textContent = metaText || 'Video message';
+    mediaVideoUI.classList.remove('hidden');
+    showVideoUi(true);
+
+    const onLoaded = () => {
+        mediaVideoSeek.value = '0';
+        mediaVideoTime.textContent = `0:00 / ${formatVideoTime(video.duration || 0)}`;
+    };
+    const onTime = () => {
+        if (!video.duration) return;
+        const progress = (video.currentTime / video.duration) * 100;
+        mediaVideoSeek.value = String(progress);
+        mediaVideoTime.textContent = `${formatVideoTime(video.currentTime)} / ${formatVideoTime(video.duration)}`;
+    };
+    const onPlay = () => {
+        mediaVideoPlayPause.innerHTML = '&#10074;&#10074;';
+        mediaVideoCenterPlay.classList.remove('show');
+        mediaVideoReplay.style.display = 'none';
+        startVideoUiAutoHide();
+    };
+    const onPause = () => {
+        mediaVideoPlayPause.innerHTML = '&#9658;';
+        mediaVideoCenterPlay.classList.add('show');
+        stopVideoUiAutoHide();
+    };
+    const onEnded = () => {
+        mediaVideoReplay.style.display = '';
+        mediaVideoCenterPlay.classList.add('show');
+        mediaVideoPlayPause.innerHTML = '&#9658;';
+        showVideoUi(true);
+    };
+    const onVolume = () => {
+        mediaVideoMute.innerHTML = video.muted || video.volume === 0 ? '&#128263;' : '&#128266;';
+        mediaVideoVolume.value = String(video.muted ? 0 : video.volume);
+    };
+
+    video.addEventListener('loadedmetadata', onLoaded);
+    video.addEventListener('timeupdate', onTime);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('ended', onEnded);
+    video.addEventListener('volumechange', onVolume);
+
+    const onTap = (event) => {
+        const now = Date.now();
+        if (now - lastTapAt < 260) {
+            return;
+        }
+        lastTapAt = now;
+        setTimeout(() => {
+            if (Date.now() - now >= 250) {
+                showVideoUi(!videoUiVisible);
+            }
+        }, 250);
+    };
+
+    const seekBy = (seconds) => {
+        video.currentTime = Math.max(0, Math.min((video.duration || 0), video.currentTime + seconds));
+        showVideoUi(true);
+    };
+
+    wrap.addEventListener('click', onTap);
+    leftSeek.addEventListener('dblclick', (e) => { e.stopPropagation(); seekBy(-10); });
+    rightSeek.addEventListener('dblclick', (e) => { e.stopPropagation(); seekBy(10); });
+
+    let touchLeftTap = 0;
+    let touchRightTap = 0;
+    leftSeek.addEventListener('touchend', () => {
+        const now = Date.now();
+        if (now - touchLeftTap < 280) seekBy(-10);
+        touchLeftTap = now;
+    }, { passive: true });
+    rightSeek.addEventListener('touchend', () => {
+        const now = Date.now();
+        if (now - touchRightTap < 280) seekBy(10);
+        touchRightTap = now;
+    }, { passive: true });
+
+    mediaVideoPlayPause.onclick = () => toggleVideoPlayback();
+    mediaVideoCenterPlay.onclick = () => toggleVideoPlayback();
+    mediaVideoReplay.onclick = () => {
+        if (!viewerVideoEl) return;
+        viewerVideoEl.currentTime = 0;
+        viewerVideoEl.play().catch(() => {});
+    };
+    mediaVideoSeek.oninput = () => {
+        if (!viewerVideoEl || !viewerVideoEl.duration) return;
+        viewerVideoEl.currentTime = (Number(mediaVideoSeek.value) / 100) * viewerVideoEl.duration;
+    };
+    mediaVideoMute.onclick = () => {
+        if (!viewerVideoEl) return;
+        viewerVideoEl.muted = !viewerVideoEl.muted;
+    };
+    mediaVideoVolume.oninput = () => {
+        if (!viewerVideoEl) return;
+        const vol = Number(mediaVideoVolume.value);
+        viewerVideoEl.volume = vol;
+        viewerVideoEl.muted = vol === 0;
+    };
+    mediaVideoFullscreen.onclick = () => toggleViewerFullscreen();
+    mediaVideoMenuBtn.onclick = (e) => {
+        e.stopPropagation();
+        mediaVideoMenu.classList.toggle('active');
+    };
+    mediaVideoDownloadAction.onclick = () => {
+        triggerMediaDownload();
+        mediaVideoMenu.classList.remove('active');
+    };
+    mediaVideoUI.addEventListener('mousemove', () => {
+        if (viewerVideoEl && !viewerVideoEl.paused) showVideoUi(true);
+    });
+}
+
+function teardownCustomVideoViewer() {
+    stopVideoUiAutoHide();
+    mediaVideoUI.classList.add('hidden');
+    mediaVideoMenu.classList.remove('active');
+    mediaVideoCenterPlay.classList.remove('show');
+    mediaVideoReplay.style.display = 'none';
+    mediaVideoPlayPause.innerHTML = '&#9658;';
+    viewerVideoEl = null;
+}
+
+function showVideoUi(visible) {
+    videoUiVisible = visible;
+    mediaVideoUI.classList.toggle('hidden', !visible);
+    if (visible) startVideoUiAutoHide();
+}
+
+function startVideoUiAutoHide() {
+    stopVideoUiAutoHide();
+    if (!viewerVideoEl || viewerVideoEl.paused) return;
+    videoUiAutoHideTimer = setTimeout(() => {
+        showVideoUi(false);
+    }, 2600);
+}
+
+function stopVideoUiAutoHide() {
+    if (videoUiAutoHideTimer) {
+        clearTimeout(videoUiAutoHideTimer);
+        videoUiAutoHideTimer = null;
+    }
+}
+
+function toggleVideoPlayback() {
+    if (!viewerVideoEl) return;
+    if (viewerVideoEl.paused) viewerVideoEl.play().catch(() => {});
+    else viewerVideoEl.pause();
+}
+
+function formatVideoTime(totalSeconds) {
+    if (!Number.isFinite(totalSeconds)) return '0:00';
+    const sec = Math.max(0, Math.floor(totalSeconds));
+    const m = Math.floor(sec / 60);
+    const s = String(sec % 60).padStart(2, '0');
+    return `${m}:${s}`;
+}
+
+function toggleViewerFullscreen() {
+    const target = mediaViewer;
+    if (!document.fullscreenElement) {
+        if (target.requestFullscreen) target.requestFullscreen().catch(() => {});
+    } else if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+    }
+}
+
+function triggerMediaDownload() {
+    if (!currentMediaUrl) return;
+    const a = document.createElement('a');
+    a.href = currentMediaUrl;
+    a.download = currentMediaUrl.split('/').pop() || 'download';
+    a.click();
 }
 
 async function closeMediaViewerAndConsumeIfNeeded() {
@@ -851,6 +1265,7 @@ async function closeMediaViewerAndConsumeIfNeeded() {
 
     mediaViewerContent.innerHTML = '';
     mediaViewer.classList.remove('active');
+    teardownCustomVideoViewer();
     currentMediaUrl = null;
     currentViewOnceMessageId = null;
     currentViewerIsViewOnce = false;
@@ -859,17 +1274,22 @@ async function closeMediaViewerAndConsumeIfNeeded() {
 mediaViewerClose.addEventListener('click', closeMediaViewerAndConsumeIfNeeded);
 
 mediaViewer.addEventListener('click', (e) => {
+    if (!e.target.closest('.media-video-menu-wrap') && mediaVideoMenu.classList.contains('active')) {
+        mediaVideoMenu.classList.remove('active');
+    }
     if (e.target === mediaViewer) {
         closeMediaViewerAndConsumeIfNeeded();
     }
 });
 
 mediaViewerDownload.addEventListener('click', () => {
-    if (!currentMediaUrl) return;
-    const a = document.createElement('a');
-    a.href = currentMediaUrl;
-    a.download = currentMediaUrl.split('/').pop() || 'download';
-    a.click();
+    triggerMediaDownload();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mediaViewer.classList.contains('active')) {
+        closeMediaViewerAndConsumeIfNeeded();
+    }
 });
 
 // ===== Message Delete =====
@@ -1010,7 +1430,7 @@ messagesArea.addEventListener('click', (e) => {
     }
 
     const mediaEl = e.target.closest('.msg-attachment');
-    if (mediaEl && !e.target.closest('video')) {
+    if (mediaEl) {
         const url = mediaEl.dataset.mediaUrl;
         const type = mediaEl.dataset.mediaType;
         if (url && type) openMediaViewer(url, type, { isViewOnce: false });
