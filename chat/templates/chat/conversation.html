@@ -157,10 +157,10 @@
     margin-bottom: 4px;
     user-select: none;
 }
-.photo-swap-locked[data-swap-status="active"] {
+.photo-swap-locked[data-swap-status="active"]:not([data-is-sender="1"]) {
     cursor: pointer;
 }
-.photo-swap-locked[data-swap-status="active"]:hover {
+.photo-swap-locked[data-swap-status="active"]:not([data-is-sender="1"]):hover {
     outline: 2px solid #6366F1;
 }
 .photo-swap-locked.video { height: 130px; }
@@ -571,13 +571,19 @@
                 <div class="photo-swap-locked {% if msg.attachment.attachment_type == 'video' %}video{% endif %}"
                      data-msg-id="{{ msg.id }}"
                      data-media-type="{{ msg.attachment.attachment_type }}"
-                     data-swap-status="{{ msg.photo_swap_status }}">
+                     data-swap-status="{{ msg.photo_swap_status }}"
+                     data-is-sender="{% if msg.sender == request.user %}1{% else %}0{% endif %}">
                     <div class="swap-blur"></div>
                     <div class="swap-overlay">
                         <div class="swap-icon">&#128274;</div>
                         {% if msg.photo_swap_status == 'active' %}
-                        <div class="swap-title">PhotoSwap Active</div>
-                        <div class="swap-status">Tap to respond with a matching {{ msg.attachment.attachment_type }}</div>
+                            {% if msg.sender == request.user %}
+                            <div class="swap-title">PhotoSwap sent</div>
+                            <div class="swap-status">Waiting for response</div>
+                            {% else %}
+                            <div class="swap-title">PhotoSwap Active</div>
+                            <div class="swap-status">Tap to respond with a matching {{ msg.attachment.attachment_type }}</div>
+                            {% endif %}
                         {% elif msg.photo_swap_status == 'pending' %}
                         <div class="swap-loader"></div>
                         <div class="swap-title">System review, please wait</div>
@@ -893,7 +899,7 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
         div.dataset.swapLocked = isSwapLocked ? '1' : '0';
 
         if (isSwapLocked) {
-            html += renderPhotoSwapLockedHtml(id, type, attachment.photo_swap_status);
+            html += renderPhotoSwapLockedHtml(id, type, attachment.photo_swap_status, isMe);
         } else if (isViewOnce && !canBypassViewOnce) {
             html += renderViewOnceCardHtml(id, url, type, isConsumed);
         } else {
@@ -921,12 +927,17 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
     if (empty) empty.remove();
 }
 
-function renderPhotoSwapLockedHtml(msgId, type, status) {
+function renderPhotoSwapLockedHtml(msgId, type, status, isSender) {
     const isVideo = type === 'video';
     let title, subStatus;
     if (status === 'active') {
-        title = 'PhotoSwap Active';
-        subStatus = `Tap to respond with a matching ${type}`;
+        if (isSender) {
+            title = 'PhotoSwap sent';
+            subStatus = 'Waiting for response';
+        } else {
+            title = 'PhotoSwap Active';
+            subStatus = `Tap to respond with a matching ${type}`;
+        }
     } else if (status === 'rejected') {
         title = 'Does not meet requirements';
         subStatus = 'System review: media does not meet requirements';
@@ -935,7 +946,8 @@ function renderPhotoSwapLockedHtml(msgId, type, status) {
         subStatus = 'Loading';
     }
     const iconHtml = (status === 'pending') ? '<div class="swap-loader"></div>' : '<div class="swap-icon">&#128274;</div>';
-    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}" data-swap-status="${escapeHtml(status || 'pending')}"><div class="swap-blur"></div><div class="swap-overlay">${iconHtml}<div class="swap-title">${title}</div><div class="swap-status">${subStatus}</div></div></div>`;
+    const senderAttr = isSender ? ' data-is-sender="1"' : '';
+    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}" data-swap-status="${escapeHtml(status || 'pending')}"${senderAttr}><div class="swap-blur"></div><div class="swap-overlay">${iconHtml}<div class="swap-title">${title}</div><div class="swap-status">${subStatus}</div></div></div>`;
 }
 
 function unlockPhotoSwapMessage(messageId, mediaUrl) {
@@ -1442,7 +1454,7 @@ previewSend.addEventListener('click', async () => {
         view_once_consumed: false,
         is_photo_swap: isPhotoSwapEnabled || isPhotoSwapResponse,
         photo_swap_status: photoSwapStatus,
-        is_swap_locked: false
+        is_swap_locked: !!(isPhotoSwapEnabled || isPhotoSwapResponse)
     };
     appendMessage('', true, attachment, true);
     hidePreview();
@@ -1937,7 +1949,9 @@ messagesArea.addEventListener('click', (e) => {
         const status = photoSwapLocked.dataset.swapStatus;
         const msgId = photoSwapLocked.dataset.msgId;
         const requiredType = photoSwapLocked.dataset.mediaType;
-        if (status === 'active' && msgId && requiredType) {
+        const msgEl = photoSwapLocked.closest('.msg');
+        const isSender = msgEl && msgEl.dataset.isSender === '1';
+        if (status === 'active' && !isSender && msgId && requiredType) {
             // Open camera directly for PhotoSwap response
             photoSwapResponseTargetId = msgId;
             photoSwapResponseType = requiredType;

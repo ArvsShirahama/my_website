@@ -29,18 +29,15 @@ def can_bypass_view_once(user):
 
 
 def is_photo_swap_locked_for(msg, user):
-    """A PhotoSwap message is locked for ``user`` based on its state:
-    - 'active'   → receiver sees clickable "PhotoSwap Active" card (locked)
-    - 'pending'  → receiver sees "Verifying..." card (locked)
-    - 'rejected' → receiver sees "Verification failed" card (locked)
-    - 'approved' → receiver sees media (unlocked)
-    The sender always sees their own media unlocked.
+    """A PhotoSwap message is locked for ``user`` based on its state.
+    Everyone (sender and receiver) sees a locked card until admin approves.
+    - 'active'   → locked card (receiver can click to respond; sender waits)
+    - 'pending'  → "System review" locked card
+    - 'rejected' → "Does not meet requirements" locked card
+    - 'approved' → media is unlocked for everyone
     """
     if not msg.is_photo_swap or not msg.attachment:
         return False
-    if msg.sender_id == user.id:
-        return False
-    # Receiver sees media only when admin has approved
     return msg.photo_swap_status != 'approved'
 
 
@@ -241,7 +238,7 @@ def send_message(request, conversation_id):
                          'view_once_consumed': False,
                          'is_photo_swap': message.is_photo_swap,
                          'photo_swap_status': message.photo_swap_status,
-                         'is_swap_locked': False,
+                         'is_swap_locked': is_photo_swap_locked_for(message, request.user),
                          'attachment': {'type': attachment.attachment_type, 'url': _attachment_url(attachment)} if attachment else None})
 
 
