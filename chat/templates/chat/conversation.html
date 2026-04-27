@@ -559,7 +559,7 @@
                     </div>
                 </div>
                 {% elif msg.is_view_once and not can_bypass_view_once %}
-                <div class="view-once-card {% if msg.is_consumed_for_user %}consumed{% endif %}" data-msg-id="{{ msg.id }}" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}" data-consumed="{% if msg.is_consumed_for_user %}1{% else %}0{% endif %}">
+                <div class="view-once-card {% if msg.is_consumed_for_user %}consumed{% endif %}" data-msg-id="{{ msg.id }}" data-media-url="{{ msg.attachment_url }}" data-media-type="{{ msg.attachment.attachment_type }}" data-consumed="{% if msg.is_consumed_for_user %}1{% else %}0{% endif %}">
                     <div class="vo-icon">{% if msg.attachment.attachment_type == 'video' %}🎬{% else %}📷{% endif %}</div>
                     <div>
                         <div class="vo-title">{% if msg.is_consumed_for_user %}Viewed{% else %}View Once{% endif %}</div>
@@ -567,12 +567,12 @@
                     </div>
                 </div>
                 {% else %}
-                <div class="msg-attachment" data-media-url="{{ msg.attachment.file.url }}" data-media-type="{{ msg.attachment.attachment_type }}">
+                <div class="msg-attachment" data-media-url="{{ msg.attachment_url }}" data-media-type="{{ msg.attachment.attachment_type }}">
                     {% if msg.attachment.attachment_type == 'image' %}
-                    <img src="{{ msg.attachment.file.url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
+                    <img src="{{ msg.attachment_url }}" alt="{{ msg.attachment.filename }}" loading="lazy">
                     {% else %}
                     <div class="msg-video-thumb">
-                        <video src="{{ msg.attachment.file.url }}" preload="metadata" muted playsinline></video>
+                        <video src="{{ msg.attachment_url }}" preload="metadata" muted playsinline></video>
                         <div class="msg-video-play"><span>&#9658;</span></div>
                     </div>
                     {% endif %}

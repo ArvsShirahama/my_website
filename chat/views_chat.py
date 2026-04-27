@@ -1,13 +1,19 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse, HttpResponseForbidden
 from django.db.models import Q
 from django.utils import timezone
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.urls import reverse
 import os
 import uuid
+
+try:
+    import magic
+except ImportError:
+    magic = None
 
 from .models import UserProfile, Conversation, Message, Attachment, ConversationTheme
 
@@ -85,7 +91,8 @@ def chat_conversation(request, conversation_id):
     for msg in messages:
         msg.is_consumed_for_user = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=user.id).exists()
         msg.is_swap_locked_for_user = is_photo_swap_locked_for(msg, user)
-    
+        msg.attachment_url = _attachment_url(msg.attachment)
+
     theme = ConversationTheme.objects.filter(user=user, conversation=conversation).first()
     theme_data = serialize_theme(theme)
 
@@ -157,14 +164,31 @@ def send_message(request, conversation_id):
     attachment = None
     if 'file' in request.FILES:
         uploaded_file = request.FILES['file']
-        file_type = 'image' if uploaded_file.content_type.startswith('image/') else 'video'
+        # Validate actual file content with python-magic to prevent MIME spoofing
+        # ( Falls back to trusting the client-reported content_type when magic
+        #   is unavailable, e.g. on Windows local dev without libmagic. )
+        if magic is not None:
+            file_head = uploaded_file.read(4096)
+            uploaded_file.seek(0)
+            detected = magic.from_buffer(file_head, mime=True)
+            allowed_mimes = (
+                'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp',
+                'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
+            )
+            if detected not in allowed_mimes:
+                return JsonResponse({'error': 'Invalid or unsupported file type.'}, status=400)
+            file_type = 'image' if detected.startswith('image/') else 'video'
+            detected_mime = detected
+        else:
+            file_type = 'image' if uploaded_file.content_type.startswith('image/') else 'video'
+            detected_mime = uploaded_file.content_type
         ext = os.path.splitext(uploaded_file.name)[1]
         filename = f"{uuid.uuid4()}{ext}"
         path = default_storage.save(f'attachments/{filename}', ContentFile(uploaded_file.read()))
 
         attachment = Attachment.objects.create(
             file=path, attachment_type=file_type, filename=uploaded_file.name,
-            file_size=uploaded_file.size, mime_type=uploaded_file.content_type
+            file_size=uploaded_file.size, mime_type=detected_mime
         )
     else:
         # Flags only meaningful with a media attachment
@@ -194,11 +218,11 @@ def send_message(request, conversation_id):
             is_deleted=False,
             attachment__attachment_type=attachment.attachment_type,
             created_at__lt=message.created_at,
-        ).values_list('id', 'attachment__file')
-        for msg_id, file_path in unlocked_qs:
+        ).select_related('attachment')
+        for unlocked_msg in unlocked_qs:
             unlocked_ids.append({
-                'id': str(msg_id),
-                'url': default_storage.url(file_path) if file_path else None,
+                'id': str(unlocked_msg.id),
+                'url': _attachment_url(unlocked_msg.attachment),
             })
 
     return JsonResponse({'id': str(message.id), 'text': message.text, 'sender': message.sender.username,
@@ -207,7 +231,7 @@ def send_message(request, conversation_id):
                          'view_once_consumed': False,
                          'is_photo_swap': message.is_photo_swap,
                          'is_swap_locked': False,
-                         'attachment': {'type': attachment.attachment_type, 'url': attachment.file.url} if attachment else None,
+                         'attachment': {'type': attachment.attachment_type, 'url': _attachment_url(attachment)} if attachment else None,
                          'unlocked_swap_messages': unlocked_ids})
 
 
@@ -233,7 +257,7 @@ def get_messages(request, conversation_id):
         if msg.attachment:
             attachment_data = {
                 'type': msg.attachment.attachment_type,
-                'url': None if (consumed or swap_locked) else msg.attachment.file.url,
+                'url': None if (consumed or swap_locked) else _attachment_url(msg.attachment),
             }
         data.append({'id': str(msg.id), 'text': msg.text, 'sender': msg.sender.username,
                      'is_me': msg.sender == request.user, 'created_at': msg.created_at.isoformat(),
@@ -261,7 +285,7 @@ def get_messages(request, conversation_id):
             if not is_photo_swap_locked_for(msg, request.user):
                 swap_unlocks.append({
                     'id': str(msg.id),
-                    'url': msg.attachment.file.url if msg.attachment else None,
+                    'url': _attachment_url(msg.attachment),
                 })
 
     return JsonResponse({'messages': data, 'swap_unlocks': swap_unlocks})
@@ -419,3 +443,39 @@ def reset_conversation_theme(request, conversation_id):
         theme.delete()
 
     return JsonResponse({'success': True, 'theme': serialize_theme(None)})
+
+
+# ========== Protected Media Serving ==========
+
+@login_required
+def serve_attachment(request, attachment_id):
+    """Serve an attachment file only to participants of the conversation it belongs to."""
+    attachment = get_object_or_404(Attachment, id=attachment_id)
+
+    # Find any message using this attachment where the user is a participant
+    msg = Message.objects.filter(
+        attachment=attachment,
+        conversation__participant1=request.user,
+    ).first() or Message.objects.filter(
+        attachment=attachment,
+        conversation__participant2=request.user,
+    ).first()
+
+    if not msg:
+        return HttpResponseForbidden("Access denied")
+
+    file_path = attachment.file.path
+    if not os.path.exists(file_path):
+        return HttpResponseForbidden("File not found")
+
+    content_type = attachment.mime_type or 'application/octet-stream'
+    response = FileResponse(open(file_path, 'rb'), content_type=content_type)
+    response['Content-Disposition'] = f'inline; filename="{attachment.filename}"'
+    return response
+
+
+def _attachment_url(attachment):
+    """Return the protected URL for an attachment (or None)."""
+    if not attachment:
+        return None
+    return reverse('serve_attachment', args=[attachment.id])

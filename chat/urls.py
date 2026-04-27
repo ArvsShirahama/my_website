@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/messages/<uuid:conversation_id>/', views_chat.get_messages, name='get_messages'),
     path('api/delete-message/<uuid:message_id>/', views_chat.delete_message, name='delete_message'),
     path('api/view-once/consume/<uuid:message_id>/', views_chat.consume_view_once_media, name='consume_view_once_media'),
+    path('api/attachment/<uuid:attachment_id>/', views_chat.serve_attachment, name='serve_attachment'),
     path('api/theme/<uuid:conversation_id>/', views_chat.get_conversation_theme, name='get_conversation_theme'),
     path('api/theme/<uuid:conversation_id>/set/', views_chat.set_conversation_theme, name='set_conversation_theme'),
     path('api/theme/<uuid:conversation_id>/reset/', views_chat.reset_conversation_theme, name='reset_conversation_theme'),

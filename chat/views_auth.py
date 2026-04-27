@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from django_ratelimit.decorators import ratelimit
 from .models import UserProfile
 
 
@@ -19,7 +20,7 @@ def register_view(request):
         elif User.objects.filter(username=username).exists(): errors.append('Username already exists')
         if not email: errors.append('Email is required')
         elif User.objects.filter(email=email).exists(): errors.append('Email already registered')
-        if len(password) < 6: errors.append('Password must be at least 6 characters')
+        if len(password) < 8: errors.append('Password must be at least 8 characters')
         elif password != confirm: errors.append('Passwords do not match')
         
         if errors:
@@ -33,11 +34,12 @@ def register_view(request):
     return render(request, 'chat/register.html')
 
 
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
 def login_view(request):
     """User login"""
     if request.user.is_authenticated:
         return redirect('chat_list')
-    
+
     if request.method == 'POST':
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '')
