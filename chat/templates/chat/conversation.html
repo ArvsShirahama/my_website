@@ -207,6 +207,18 @@
     border-radius: 999px;
     margin-top: 6px;
 }
+.photo-swap-locked .swap-loader {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(255,255,255,0.25);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: swapSpin 0.9s linear infinite;
+    margin-bottom: 6px;
+}
+@keyframes swapSpin {
+    to { transform: rotate(360deg); }
+}
 .photo-swap-badge {
     display: inline-flex;
     align-items: center;
@@ -567,11 +579,12 @@
                         <div class="swap-title">PhotoSwap Active</div>
                         <div class="swap-status">Tap to respond with a matching {{ msg.attachment.attachment_type }}</div>
                         {% elif msg.photo_swap_status == 'pending' %}
-                        <div class="swap-title">Verifying media...</div>
-                        <div class="swap-status">Pending admin review</div>
+                        <div class="swap-loader"></div>
+                        <div class="swap-title">System review, please wait</div>
+                        <div class="swap-status">Loading</div>
                         {% elif msg.photo_swap_status == 'rejected' %}
-                        <div class="swap-title">Verification failed</div>
-                        <div class="swap-status">This swap was rejected</div>
+                        <div class="swap-title">Does not meet requirements</div>
+                        <div class="swap-status">System review: media does not meet requirements</div>
                         {% else %}
                         <div class="swap-title">Verifying media...</div>
                         <div class="swap-status">Waiting for swap</div>
@@ -915,13 +928,14 @@ function renderPhotoSwapLockedHtml(msgId, type, status) {
         title = 'PhotoSwap Active';
         subStatus = `Tap to respond with a matching ${type}`;
     } else if (status === 'rejected') {
-        title = 'Verification failed';
-        subStatus = 'This swap was rejected';
+        title = 'Does not meet requirements';
+        subStatus = 'System review: media does not meet requirements';
     } else {
-        title = 'Verifying media...';
-        subStatus = 'Pending admin review';
+        title = 'System review, please wait';
+        subStatus = 'Loading';
     }
-    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}" data-swap-status="${escapeHtml(status || 'pending')}"><div class="swap-blur"></div><div class="swap-overlay"><div class="swap-icon">&#128274;</div><div class="swap-title">${title}</div><div class="swap-status">${subStatus}</div></div></div>`;
+    const iconHtml = (status === 'pending') ? '<div class="swap-loader"></div>' : '<div class="swap-icon">&#128274;</div>';
+    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}" data-swap-status="${escapeHtml(status || 'pending')}"><div class="swap-blur"></div><div class="swap-overlay">${iconHtml}<div class="swap-title">${title}</div><div class="swap-status">${subStatus}</div></div></div>`;
 }
 
 function unlockPhotoSwapMessage(messageId, mediaUrl) {
@@ -1466,10 +1480,15 @@ previewSend.addEventListener('click', async () => {
                 const lockedCard = origMsgEl.querySelector('.photo-swap-locked');
                 if (lockedCard) {
                     lockedCard.dataset.swapStatus = 'pending';
+                    const swapIcon = lockedCard.querySelector('.swap-icon');
                     const swapTitle = lockedCard.querySelector('.swap-title');
                     const swapStatus = lockedCard.querySelector('.swap-status');
-                    if (swapTitle) swapTitle.textContent = 'Verifying media...';
-                    if (swapStatus) swapStatus.textContent = 'Pending admin review';
+                    if (swapIcon) {
+                        swapIcon.className = 'swap-loader';
+                        swapIcon.innerHTML = '';
+                    }
+                    if (swapTitle) swapTitle.textContent = 'System review, please wait';
+                    if (swapStatus) swapStatus.textContent = 'Loading';
                 }
             }
         }
