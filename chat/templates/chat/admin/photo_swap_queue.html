@@ -105,11 +105,11 @@
                 <!-- Pair-level actions -->
                 {% if pair.original.photo_swap_status == 'pending' %}
                 <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color);">
-                    <form action="{% url 'admin_photo_swap_approve' pair.original.id %}" method="post" style="display: inline;">
+                    <form class="ps-approve-form" action="{% url 'admin_photo_swap_approve' pair.original.id %}" method="post" style="display: inline;">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-primary" style="font-size: 14px; padding: 8px 20px;">Approve Pair</button>
                     </form>
-                    <form action="{% url 'admin_photo_swap_reject' pair.original.id %}" method="post" style="display: inline;">
+                    <form class="ps-reject-form" action="{% url 'admin_photo_swap_reject' pair.original.id %}" method="post" style="display: inline;">
                         {% csrf_token %}
                         <button type="submit" class="btn" style="font-size: 14px; padding: 8px 20px; background: var(--danger); color: #fff;">Reject Pair</button>
                     </form>
@@ -126,4 +126,42 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+function getCsrfToken() {
+    const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
+    return input ? input.value : '';
+}
+
+document.querySelectorAll('.ps-approve-form, .ps-reject-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = form.querySelector('button[type="submit"]');
+        const originalText = btn.textContent;
+        btn.textContent = 'Processing...';
+        btn.disabled = true;
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.error || 'Action failed');
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        } catch (err) {
+            alert('Network error');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    });
+});
+</script>
 {% endblock %}
