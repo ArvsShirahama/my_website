@@ -29,21 +29,19 @@ def can_bypass_view_once(user):
 
 
 def is_photo_swap_locked_for(msg, user):
-    """A PhotoSwap message is locked for ``user`` until they have sent a
-    matching-type media (image-for-image, video-for-video) AFTER the
-    message was created. The sender always sees their own media unlocked.
+    """A PhotoSwap message is locked for ``user`` based on its state:
+    - 'active'   → receiver sees clickable "PhotoSwap Active" card (locked)
+    - 'pending'  → receiver sees "Verifying..." card (locked)
+    - 'rejected' → receiver sees "Verification failed" card (locked)
+    - 'approved' → receiver sees media (unlocked)
+    The sender always sees their own media unlocked.
     """
     if not msg.is_photo_swap or not msg.attachment:
         return False
     if msg.sender_id == user.id:
         return False
-    return not Message.objects.filter(
-        conversation_id=msg.conversation_id,
-        sender=user,
-        created_at__gt=msg.created_at,
-        attachment__attachment_type=msg.attachment.attachment_type,
-        is_deleted=False,
-    ).exists()
+    # Receiver sees media only when admin has approved
+    return msg.photo_swap_status != 'approved'
 
 
 @login_required
@@ -92,6 +90,7 @@ def chat_conversation(request, conversation_id):
         msg.is_consumed_for_user = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=user.id).exists()
         msg.is_swap_locked_for_user = is_photo_swap_locked_for(msg, user)
         msg.attachment_url = _attachment_url(msg.attachment)
+        msg.photo_swap_status_display = msg.get_photo_swap_status_display()
 
     theme = ConversationTheme.objects.filter(user=user, conversation=conversation).first()
     theme_data = serialize_theme(theme)
@@ -195,44 +194,55 @@ def send_message(request, conversation_id):
         view_once = False
         photo_swap = False
 
+    # PhotoSwap response handling
+    photo_swap_response = request.POST.get('photo_swap_response', '0').lower() in ('1', 'true', 'on', 'yes')
+    photo_swap_original_id = request.POST.get('photo_swap_original_id', '').strip()
+    photo_swap_original = None
+
+    if photo_swap_response and attachment and photo_swap_original_id:
+        # Find the original PhotoSwap message we are responding to
+        try:
+            photo_swap_original = Message.objects.get(
+                id=photo_swap_original_id,
+                conversation=conversation,
+                is_photo_swap=True,
+                photo_swap_status='active',
+                is_deleted=False,
+            )
+        except Message.DoesNotExist:
+            return JsonResponse({'error': 'PhotoSwap request not found or already responded'}, status=400)
+
+        # Type must match (image↔image, video↔video)
+        if photo_swap_original.attachment.attachment_type != attachment.attachment_type:
+            return JsonResponse({'error': f'Type mismatch: original is {photo_swap_original.attachment.attachment_type}, you sent {attachment.attachment_type}'}, status=400)
+
     message = Message.objects.create(
         conversation=conversation,
         sender=request.user,
         text=text,
         attachment=attachment,
         is_view_once=view_once,
-        is_photo_swap=photo_swap,
+        is_photo_swap=photo_swap or bool(photo_swap_original),
+        photo_swap_status='active' if photo_swap else ('pending' if photo_swap_original else 'approved'),
+        photo_swap_response_to=photo_swap_original,
     )
+
+    # When a valid PhotoSwap response is received, move both to pending admin review
+    if photo_swap_original:
+        photo_swap_original.photo_swap_status = 'pending'
+        photo_swap_original.save(update_fields=['photo_swap_status'])
+
     conversation.last_message = message
     conversation.save()
-
-    # If this send is a media of matching type, it unlocks any prior PhotoSwap
-    # messages from the OTHER user that were waiting for this exact type.
-    unlocked_ids = []
-    if attachment:
-        other = conversation.get_other_participant(request.user)
-        unlocked_qs = Message.objects.filter(
-            conversation=conversation,
-            sender=other,
-            is_photo_swap=True,
-            is_deleted=False,
-            attachment__attachment_type=attachment.attachment_type,
-            created_at__lt=message.created_at,
-        ).select_related('attachment')
-        for unlocked_msg in unlocked_qs:
-            unlocked_ids.append({
-                'id': str(unlocked_msg.id),
-                'url': _attachment_url(unlocked_msg.attachment),
-            })
 
     return JsonResponse({'id': str(message.id), 'text': message.text, 'sender': message.sender.username,
                          'created_at': message.created_at.isoformat(),
                          'is_view_once': message.is_view_once,
                          'view_once_consumed': False,
                          'is_photo_swap': message.is_photo_swap,
+                         'photo_swap_status': message.photo_swap_status,
                          'is_swap_locked': False,
-                         'attachment': {'type': attachment.attachment_type, 'url': _attachment_url(attachment)} if attachment else None,
-                         'unlocked_swap_messages': unlocked_ids})
+                         'attachment': {'type': attachment.attachment_type, 'url': _attachment_url(attachment)} if attachment else None})
 
 
 @login_required
@@ -265,6 +275,8 @@ def get_messages(request, conversation_id):
                      'is_view_once': msg.is_view_once,
                      'view_once_consumed': consumed,
                      'is_photo_swap': msg.is_photo_swap,
+                     'photo_swap_status': msg.photo_swap_status,
+                     'photo_swap_original_id': str(msg.photo_swap_response_to_id) if msg.photo_swap_response_to_id else None,
                      'is_swap_locked': swap_locked,
                      'attachment': attachment_data})
 

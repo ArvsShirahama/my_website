@@ -32,9 +32,14 @@ urlpatterns = [
     path('admin/users/delete/<int:user_id>/', views_admin.admin_delete_user, name='admin_delete_user'),
     path('admin/messages/', views_admin.admin_messages, name='admin_messages'),
     path('admin/messages/delete/<uuid:message_id>/', views_admin.admin_delete_message, name='admin_delete_message'),
+    path('admin/api/bulk-delete-messages/', views_admin.admin_bulk_delete_messages, name='admin_bulk_delete_messages'),
     path('admin/conversations/', views_admin.admin_conversations, name='admin_conversations'),
     path('admin/conversations/<uuid:conversation_id>/', views_admin.admin_conversation_detail, name='admin_conversation_detail'),
     path('admin/logs/', views_admin.admin_logs, name='admin_logs'),
+    path('admin/photoswap/', views_admin.admin_photo_swap_queue, name='admin_photo_swap_queue'),
+    path('admin/photoswap/detail/<uuid:message_id>/', views_admin.admin_photo_swap_detail, name='admin_photo_swap_detail'),
+    path('admin/photoswap/approve/<uuid:message_id>/', views_admin.admin_photo_swap_approve, name='admin_photo_swap_approve'),
+    path('admin/photoswap/reject/<uuid:message_id>/', views_admin.admin_photo_swap_reject, name='admin_photo_swap_reject'),
     
     # Admin API
     path('admin/api/delete-user/<int:user_id>/', views_admin.admin_delete_user, name='admin_delete_user'),

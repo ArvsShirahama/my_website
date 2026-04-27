@@ -54,9 +54,18 @@
         </div>
 
         <div class="card" style="overflow: auto;">
+            <div style="padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border-light);">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="selectAllCheckbox" style="width: 16px; height: 16px; cursor: pointer;">
+                    Select All
+                </label>
+                <button class="btn btn-danger" id="bulkDeleteBtn" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="bulkDeleteSelected()">Delete Selected</button>
+                <span id="selectedCount" style="font-size: 12px; color: var(--text-muted); margin-left: auto;"></span>
+            </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                 <thead>
                     <tr style="border-bottom: 1px solid var(--border-light);">
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;"></th>
                         <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">ID</th>
                         <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Sender</th>
                         <th style="padding: 12px 16px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Conversation</th>
@@ -69,6 +78,9 @@
                 <tbody>
                     {% for msg in messages %}
                     <tr style="border-bottom: 1px solid var(--border-light);" id="msg-row-{{ msg.id }}">
+                        <td style="padding: 12px 16px; text-align: center;">
+                            <input type="checkbox" class="msg-select-checkbox" value="{{ msg.id }}" style="width: 16px; height: 16px; cursor: pointer;">
+                        </td>
                         <td style="padding: 12px 16px; font-size: 12px; color: var(--text-muted); font-family: monospace;">{{ msg.id|slice:":8" }}</td>
                         <td style="padding: 12px 16px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
@@ -100,7 +112,7 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="7" style="padding: 24px; text-align: center; color: var(--text-secondary);">No messages found</td></tr>
+                    <tr><td colspan="8" style="padding: 24px; text-align: center; color: var(--text-secondary);">No messages found</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -122,6 +134,37 @@
 </div>
 
 <script>
+const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+const selectedCountLabel = document.getElementById('selectedCount');
+
+function updateSelectionUI() {
+    const checkboxes = document.querySelectorAll('.msg-select-checkbox');
+    const checked = document.querySelectorAll('.msg-select-checkbox:checked');
+    if (checked.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        selectedCountLabel.textContent = `${checked.length} selected`;
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+        selectedCountLabel.textContent = '';
+    }
+    const allChecked = checkboxes.length > 0 && checked.length === checkboxes.length;
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+}
+
+if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', () => {
+        const checkboxes = document.querySelectorAll('.msg-select-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAllCheckbox.checked);
+        updateSelectionUI();
+    });
+}
+
+document.querySelectorAll('.msg-select-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateSelectionUI);
+});
+
 async function deleteMessage(msgId) {
     if (!confirm('Delete this message?')) return;
     try {
@@ -136,6 +179,36 @@ async function deleteMessage(msgId) {
         }
     } catch (err) {
         alert('Failed to delete message');
+    }
+}
+
+async function bulkDeleteSelected() {
+    const checked = document.querySelectorAll('.msg-select-checkbox:checked');
+    const ids = Array.from(checked).map(cb => cb.value);
+    if (ids.length === 0) return;
+    if (!confirm(`Delete ${ids.length} selected message(s)?`)) return;
+    try {
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+        const response = await fetch('/chat/admin/api/bulk-delete-messages/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ message_ids: ids })
+        });
+        const data = await response.json();
+        if (data.success) {
+            ids.forEach(id => {
+                const row = document.getElementById(`msg-row-${id}`);
+                if (row) row.remove();
+            });
+            updateSelectionUI();
+        } else {
+            alert(data.error || 'Failed to delete messages');
+        }
+    } catch (err) {
+        alert('Failed to delete messages');
     }
 }
 </script>

@@ -1,0 +1,129 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}PhotoSwap Verification Queue{% endblock %}
+
+{% block extra_css %}
+<style>
+.ps-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: 600; }
+.ps-badge-lg { padding: 4px 16px; font-size: 12px; }
+.ps-status-pending { background: var(--warning); color: #000; }
+.ps-status-approved { background: var(--success); color: #fff; }
+.ps-status-rejected { background: var(--danger); color: #fff; }
+.ps-status-default { background: var(--surface); color: var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto;">
+    <div class="app-bar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="{% url 'admin_dashboard' %}" class="back-btn">&#8592;</a>
+            <h1>PhotoSwap Verification Queue</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+    </div>
+
+    <div class="container" style="padding-top: 24px;">
+        <!-- Role Badge -->
+        <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; color: var(--text-secondary);">Logged in as:</span>
+            <span style="padding: 2px 10px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: 600; background: var(--primary); color: #fff;">
+                {% if is_admin %}Admin{% else %}Staff{% endif %}
+            </span>
+        </div>
+
+        <!-- Status Filter -->
+        <div style="display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;">
+            <a href="?status=pending" class="btn {% if status_filter == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}">Pending</a>
+            <a href="?status=approved" class="btn {% if status_filter == 'approved' %}btn-primary{% else %}btn-secondary{% endif %}">Approved</a>
+            <a href="?status=rejected" class="btn {% if status_filter == 'rejected' %}btn-primary{% else %}btn-secondary{% endif %}">Rejected</a>
+            <a href="?status=all" class="btn {% if status_filter == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">All</a>
+        </div>
+
+        {% if pairs %}
+            {% for pair in pairs %}
+            <div class="card" style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 16px;">Conversation: {{ pair.conversation.participant1.username }} &harr; {{ pair.conversation.participant2.username }}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ pair.conversation.id }}</div>
+                    </div>
+                    <span class="ps-badge ps-badge-lg {% if status_filter == 'pending' %}ps-status-pending{% elif status_filter == 'approved' %}ps-status-approved{% elif status_filter == 'rejected' %}ps-status-rejected{% else %}ps-status-default{% endif %}">
+                        {{ status_filter|title }}
+                    </span>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+                    <!-- Original message -->
+                    <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-weight: 600; font-size: 14px;">{{ pair.original.sender.username }} (Original)</span>
+                            <span style="font-size: 11px; color: var(--text-secondary);">{{ pair.original.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span class="ps-badge {% if pair.original.photo_swap_status == 'pending' %}ps-status-pending{% elif pair.original.photo_swap_status == 'approved' %}ps-status-approved{% else %}ps-status-rejected{% endif %}">
+                                {{ pair.original.get_photo_swap_status_display }}
+                            </span>
+                            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">{{ pair.original.attachment.attachment_type|title }}</span>
+                        </div>
+                        {% if pair.original.attachment.attachment_type == 'image' %}
+                        <img src="{{ pair.original.attachment_url }}" alt="" style="max-width: 100%; max-height: 200px; border-radius: 4px; object-fit: cover;">
+                        {% else %}
+                        <video src="{{ pair.original.attachment_url }}" controls style="max-width: 100%; max-height: 200px; border-radius: 4px;"></video>
+                        {% endif %}
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <a href="{% url 'admin_photo_swap_detail' pair.original.id %}" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">Detail</a>
+                        </div>
+                    </div>
+
+                    <!-- Response messages -->
+                    {% for msg in pair.responses %}
+                    <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-weight: 600; font-size: 14px;">{{ msg.sender.username }} (Response)</span>
+                            <span style="font-size: 11px; color: var(--text-secondary);">{{ msg.created_at|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        <div style="margin-bottom: 8px;">
+                            <span class="ps-badge {% if msg.photo_swap_status == 'pending' %}ps-status-pending{% elif msg.photo_swap_status == 'approved' %}ps-status-approved{% else %}ps-status-rejected{% endif %}">
+                                {{ msg.get_photo_swap_status_display }}
+                            </span>
+                            <span style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">{{ msg.attachment.attachment_type|title }}</span>
+                        </div>
+                        {% if msg.attachment.attachment_type == 'image' %}
+                        <img src="{{ msg.attachment_url }}" alt="" style="max-width: 100%; max-height: 200px; border-radius: 4px; object-fit: cover;">
+                        {% else %}
+                        <video src="{{ msg.attachment_url }}" controls style="max-width: 100%; max-height: 200px; border-radius: 4px;"></video>
+                        {% endif %}
+                    </div>
+                    {% empty %}
+                    <div style="border: 1px dashed var(--border-color); border-radius: 8px; padding: 12px; text-align: center;">
+                        <p style="color: var(--text-secondary); font-size: 14px;">No response yet</p>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Pair-level actions -->
+                {% if pair.original.photo_swap_status == 'pending' %}
+                <div style="display: flex; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+                    <form action="{% url 'admin_photo_swap_approve' pair.original.id %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary" style="font-size: 14px; padding: 8px 20px;">Approve Pair</button>
+                    </form>
+                    <form action="{% url 'admin_photo_swap_reject' pair.original.id %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn" style="font-size: 14px; padding: 8px 20px; background: var(--danger); color: #fff;">Reject Pair</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="card" style="text-align: center; padding: 40px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">&#128274;</div>
+            <h3 style="margin-bottom: 8px;">No PhotoSwap items found</h3>
+            <p style="color: var(--text-secondary);">There are no PhotoSwap messages with status "{{ status_filter }}" at this time.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

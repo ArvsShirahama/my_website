@@ -1,0 +1,100 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}PhotoSwap Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+.ps-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; text-transform: uppercase; font-weight: 600; }
+.ps-badge-lg { padding: 4px 16px; font-size: 12px; }
+.ps-status-pending { background: var(--warning); color: #000; }
+.ps-status-approved { background: var(--success); color: #fff; }
+.ps-status-rejected { background: var(--danger); color: #fff; }
+.ps-status-default { background: var(--surface); color: var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+    <div class="app-bar">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="{% url 'admin_photo_swap_queue' %}" class="back-btn">&#8592;</a>
+            <h1>PhotoSwap Detail</h1>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+    </div>
+
+    <div class="container" style="padding-top: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+            <!-- Original message -->
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 16px;">{{ original.sender.username }} (Original)</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ original.created_at|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                    <span class="ps-badge ps-badge-lg {% if original.photo_swap_status == 'pending' %}ps-status-pending{% elif original.photo_swap_status == 'approved' %}ps-status-approved{% else %}ps-status-rejected{% endif %}">
+                        {{ original.get_photo_swap_status_display }}
+                    </span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">{{ original.attachment.attachment_type|title }}</div>
+                {% if original.attachment.attachment_type == 'image' %}
+                <img src="{{ original.attachment_url }}" alt="" style="max-width: 100%; border-radius: 8px; display: block;">
+                {% else %}
+                <video src="{{ original.attachment_url }}" controls style="max-width: 100%; border-radius: 8px; display: block;"></video>
+                {% endif %}
+                {% if original.text %}
+                <div style="margin-top: 12px; padding: 12px; background: var(--surface); border-radius: 8px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Caption</div>
+                    <div>{{ original.text }}</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Response message -->
+            {% if response %}
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <div style="font-weight: 600; font-size: 16px;">{{ response.sender.username }} (Response)</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">{{ response.created_at|date:"Y-m-d H:i:s" }}</div>
+                    </div>
+                    <span class="ps-badge ps-badge-lg {% if response.photo_swap_status == 'pending' %}ps-status-pending{% elif response.photo_swap_status == 'approved' %}ps-status-approved{% else %}ps-status-rejected{% endif %}">
+                        {{ response.get_photo_swap_status_display }}
+                    </span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">{{ response.attachment.attachment_type|title }}</div>
+                {% if response.attachment.attachment_type == 'image' %}
+                <img src="{{ response.attachment_url }}" alt="" style="max-width: 100%; border-radius: 8px; display: block;">
+                {% else %}
+                <video src="{{ response.attachment_url }}" controls style="max-width: 100%; border-radius: 8px; display: block;"></video>
+                {% endif %}
+                {% if response.text %}
+                <div style="margin-top: 12px; padding: 12px; background: var(--surface); border-radius: 8px;">
+                    <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Caption</div>
+                    <div>{{ response.text }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="card" style="text-align: center; padding: 40px;">
+                <p style="color: var(--text-secondary);">No response yet. Waiting for User 2 to send a matching {{ original.attachment.attachment_type }}.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Pair-level actions -->
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            {% if original.photo_swap_status == 'pending' %}
+            <form action="{% url 'admin_photo_swap_approve' original.id %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary" style="padding: 10px 24px;">Approve Pair</button>
+            </form>
+            <form action="{% url 'admin_photo_swap_reject' original.id %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn" style="padding: 10px 24px; background: var(--danger); color: #fff;">Reject Pair</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

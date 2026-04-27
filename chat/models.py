@@ -108,6 +108,27 @@ class Message(models.Model):
         blank=True,
     )
     is_photo_swap = models.BooleanField(default=False)
+    PHOTO_SWAP_STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    photo_swap_status = models.CharField(
+        max_length=10,
+        choices=PHOTO_SWAP_STATUS_CHOICES,
+        default='approved',
+        blank=True,
+        help_text='PhotoSwap state: active=waiting for response, pending=admin review, approved=revealed, rejected=blocked'
+    )
+    photo_swap_response_to = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='photo_swap_responses',
+        help_text='Links a response message to the original PhotoSwap message'
+    )
 
     class Meta:
         db_table = 'chat_message'

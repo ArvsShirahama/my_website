@@ -157,6 +157,12 @@
     margin-bottom: 4px;
     user-select: none;
 }
+.photo-swap-locked[data-swap-status="active"] {
+    cursor: pointer;
+}
+.photo-swap-locked[data-swap-status="active"]:hover {
+    outline: 2px solid #6366F1;
+}
 .photo-swap-locked.video { height: 130px; }
 .photo-swap-locked .swap-blur {
     position: absolute;
@@ -550,12 +556,26 @@
         <div class="msg {% if msg.sender == request.user %}msg-me{% else %}msg-other{% endif %}" data-id="{{ msg.id }}" data-is-sender="{% if msg.sender == request.user %}1{% else %}0{% endif %}">
             {% if msg.attachment %}
                 {% if msg.is_swap_locked_for_user %}
-                <div class="photo-swap-locked {% if msg.attachment.attachment_type == 'video' %}video{% endif %}" data-msg-id="{{ msg.id }}" data-media-type="{{ msg.attachment.attachment_type }}">
+                <div class="photo-swap-locked {% if msg.attachment.attachment_type == 'video' %}video{% endif %}"
+                     data-msg-id="{{ msg.id }}"
+                     data-media-type="{{ msg.attachment.attachment_type }}"
+                     data-swap-status="{{ msg.photo_swap_status }}">
                     <div class="swap-blur"></div>
                     <div class="swap-overlay">
                         <div class="swap-icon">&#128274;</div>
-                        <div class="swap-title">{% if msg.attachment.attachment_type == 'video' %}Send a video to unlock this video{% else %}Send a photo to unlock this photo{% endif %}</div>
+                        {% if msg.photo_swap_status == 'active' %}
+                        <div class="swap-title">PhotoSwap Active</div>
+                        <div class="swap-status">Tap to respond with a matching {{ msg.attachment.attachment_type }}</div>
+                        {% elif msg.photo_swap_status == 'pending' %}
+                        <div class="swap-title">Verifying media...</div>
+                        <div class="swap-status">Pending admin review</div>
+                        {% elif msg.photo_swap_status == 'rejected' %}
+                        <div class="swap-title">Verification failed</div>
+                        <div class="swap-status">This swap was rejected</div>
+                        {% else %}
+                        <div class="swap-title">Verifying media...</div>
                         <div class="swap-status">Waiting for swap</div>
+                        {% endif %}
                     </div>
                 </div>
                 {% elif msg.is_view_once and not can_bypass_view_once %}
@@ -609,6 +629,8 @@
         <input type="hidden" name="conversation_id" value="{{ conversation.id }}">
         <input type="hidden" name="view_once" id="viewOnceInput" value="0">
         <input type="hidden" name="photo_swap" id="photoSwapInput" value="0">
+        <input type="hidden" name="photo_swap_response" id="photoSwapResponseInput" value="0">
+        <input type="hidden" name="photo_swap_original_id" id="photoSwapOriginalIdInput" value="">
         <button type="button" class="cam-btn" id="camBtn" title="Open camera">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path>
@@ -858,7 +880,7 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
         div.dataset.swapLocked = isSwapLocked ? '1' : '0';
 
         if (isSwapLocked) {
-            html += renderPhotoSwapLockedHtml(id, type);
+            html += renderPhotoSwapLockedHtml(id, type, attachment.photo_swap_status);
         } else if (isViewOnce && !canBypassViewOnce) {
             html += renderViewOnceCardHtml(id, url, type, isConsumed);
         } else {
@@ -886,10 +908,20 @@ function appendMessage(text, isMe, attachment, isOptimistic, id) {
     if (empty) empty.remove();
 }
 
-function renderPhotoSwapLockedHtml(msgId, type) {
+function renderPhotoSwapLockedHtml(msgId, type, status) {
     const isVideo = type === 'video';
-    const title = isVideo ? 'Send a video to unlock this video' : 'Send a photo to unlock this photo';
-    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}"><div class="swap-blur"></div><div class="swap-overlay"><div class="swap-icon">&#128274;</div><div class="swap-title">${title}</div><div class="swap-status">Waiting for swap</div></div></div>`;
+    let title, subStatus;
+    if (status === 'active') {
+        title = 'PhotoSwap Active';
+        subStatus = `Tap to respond with a matching ${type}`;
+    } else if (status === 'rejected') {
+        title = 'Verification failed';
+        subStatus = 'This swap was rejected';
+    } else {
+        title = 'Verifying media...';
+        subStatus = 'Pending admin review';
+    }
+    return `<div class="photo-swap-locked ${isVideo ? 'video' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-type="${escapeHtml(type || 'image')}" data-swap-status="${escapeHtml(status || 'pending')}"><div class="swap-blur"></div><div class="swap-overlay"><div class="swap-icon">&#128274;</div><div class="swap-title">${title}</div><div class="swap-status">${subStatus}</div></div></div>`;
 }
 
 function unlockPhotoSwapMessage(messageId, mediaUrl) {
@@ -966,6 +998,7 @@ async function pollMessages() {
                         is_view_once: msg.is_view_once,
                         view_once_consumed: msg.view_once_consumed,
                         is_photo_swap: msg.is_photo_swap,
+                        photo_swap_status: msg.photo_swap_status,
                         is_swap_locked: msg.is_swap_locked
                     } : null;
                     appendMessage(msg.text, msg.is_me, attachment, false, msg.id);
@@ -1023,6 +1056,8 @@ let capturedType = null;
 let countdownTimer = null;
 let isViewOnceEnabled = false;
 let isPhotoSwapEnabled = false;
+let photoSwapResponseTargetId = null;  // ID of the original PhotoSwap message we're responding to
+let photoSwapResponseType = null;      // 'image' or 'video' required for response
 const fileInput = document.getElementById('fileInput');
 
 function resetViewOnceToggle() {
@@ -1095,6 +1130,9 @@ fileInput.addEventListener('change', () => {
 document.getElementById('camBtn').addEventListener('click', async () => {
     console.log('Camera button clicked');
     try {
+        // Stop any existing stream first
+        if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+        camVideo.srcObject = null;
         camOverlay.classList.add('active');
         console.log('Overlay active, starting camera...');
         setMode('photo');
@@ -1104,10 +1142,16 @@ document.getElementById('camBtn').addEventListener('click', async () => {
         console.error('Camera error:', err);
         alert('Could not access camera. Please allow camera permissions. Error: ' + err.message);
         closeCamera();
+        resetPhotoSwapResponseState();
     }
 });
 
 async function startCamera() {
+    // Stop any existing stream to avoid "Device in use" error
+    if (camStream) {
+        camStream.getTracks().forEach(t => t.stop());
+        camStream = null;
+    }
     const useAudio = currentMode === 'video';
     const constraints = {
         video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -1118,8 +1162,21 @@ async function startCamera() {
     camVideo.classList.toggle('mirrored', facingMode === 'user');
 }
 
+function resetPhotoSwapResponseState() {
+    photoSwapResponseTargetId = null;
+    photoSwapResponseType = null;
+    const respInput = document.getElementById('photoSwapResponseInput');
+    const origInput = document.getElementById('photoSwapOriginalIdInput');
+    if (respInput) respInput.value = '0';
+    if (origInput) origInput.value = '';
+    // Re-enable mode switching buttons
+    if (modePhoto) modePhoto.disabled = false;
+    if (modeVideo) modeVideo.disabled = false;
+}
+
 function closeCamera() {
     if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    if (camVideo) { camVideo.srcObject = null; }
     if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     stopRecordingCleanup();
     camOverlay.classList.remove('active');
@@ -1127,7 +1184,10 @@ function closeCamera() {
     camCountdown.textContent = '';
 }
 
-camClose.addEventListener('click', closeCamera);
+camClose.addEventListener('click', () => {
+    closeCamera();
+    resetPhotoSwapResponseState();
+});
 
 // Switch camera
 camSwitch.addEventListener('click', async () => {
@@ -1336,6 +1396,7 @@ previewRetake.addEventListener('click', () => {
     } else {
         fileInput.value = '';
         document.getElementById('fileName').textContent = '';
+        resetPhotoSwapResponseState();
     }
 });
 
@@ -1355,13 +1416,18 @@ previewSend.addEventListener('click', async () => {
     formData.set('file', file);
     formData.set('view_once', isViewOnceEnabled ? '1' : '0');
     formData.set('photo_swap', isPhotoSwapEnabled ? '1' : '0');
+    formData.set('photo_swap_response', photoSwapResponseTargetId ? '1' : '0');
+    formData.set('photo_swap_original_id', photoSwapResponseTargetId || '');
 
+    const isPhotoSwapResponse = !!photoSwapResponseTargetId;
+    const photoSwapStatus = isPhotoSwapResponse ? 'pending' : (isPhotoSwapEnabled ? 'active' : 'approved');
     const attachment = {
         type: capturedType,
         url: URL.createObjectURL(capturedBlob),
         is_view_once: isViewOnceEnabled,
         view_once_consumed: false,
-        is_photo_swap: isPhotoSwapEnabled,
+        is_photo_swap: isPhotoSwapEnabled || isPhotoSwapResponse,
+        photo_swap_status: photoSwapStatus,
         is_swap_locked: false
     };
     appendMessage('', true, attachment, true);
@@ -1393,8 +1459,24 @@ previewSend.addEventListener('click', async () => {
                 if (item && item.id) unlockPhotoSwapMessage(item.id, item.url);
             });
         }
+        // Update the original PhotoSwap card to "Verifying..." after response is sent
+        if (photoSwapResponseTargetId) {
+            const origMsgEl = document.querySelector(`.msg[data-id="${photoSwapResponseTargetId}"]`);
+            if (origMsgEl) {
+                const lockedCard = origMsgEl.querySelector('.photo-swap-locked');
+                if (lockedCard) {
+                    lockedCard.dataset.swapStatus = 'pending';
+                    const swapTitle = lockedCard.querySelector('.swap-title');
+                    const swapStatus = lockedCard.querySelector('.swap-status');
+                    if (swapTitle) swapTitle.textContent = 'Verifying media...';
+                    if (swapStatus) swapStatus.textContent = 'Pending admin review';
+                }
+            }
+        }
+        resetPhotoSwapResponseState();
     } catch (err) {
         console.error('Send failed:', err);
+        resetPhotoSwapResponseState();
     }
 });
 
@@ -1829,6 +1911,34 @@ messagesArea.addEventListener('click', (e) => {
         const url = mediaEl.dataset.mediaUrl;
         const type = mediaEl.dataset.mediaType;
         if (url && type) openMediaViewer(url, type, { isViewOnce: false });
+    }
+
+    const photoSwapLocked = e.target.closest('.photo-swap-locked');
+    if (photoSwapLocked) {
+        const status = photoSwapLocked.dataset.swapStatus;
+        const msgId = photoSwapLocked.dataset.msgId;
+        const requiredType = photoSwapLocked.dataset.mediaType;
+        if (status === 'active' && msgId && requiredType) {
+            // Open camera directly for PhotoSwap response
+            photoSwapResponseTargetId = msgId;
+            photoSwapResponseType = requiredType;
+            document.getElementById('photoSwapResponseInput').value = '1';
+            document.getElementById('photoSwapOriginalIdInput').value = msgId;
+            // Clean up any existing camera session before opening
+            if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+            camVideo.srcObject = null;
+            // Set camera to correct mode and open it
+            if (requiredType === 'video') {
+                setMode('video');
+            } else {
+                setMode('photo');
+            }
+            camOverlay.classList.add('active');
+            startCamera().catch(() => {});
+            // Disable mode switching during PhotoSwap response
+            if (modePhoto) modePhoto.disabled = true;
+            if (modeVideo) modeVideo.disabled = true;
+        }
     }
 });
 
