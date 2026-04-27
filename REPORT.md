@@ -577,4 +577,85 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 
 ---
 
+## 13. Admin Dashboard Enhancements
+
+### 13.1 Bulk Message Delete
+
+**Problem**: Admin had to delete messages one by one in the message history.
+
+**Fix**: Added bulk delete functionality with checkboxes, "Select All", and "Delete Selected" button.
+
+**Files changed**:
+- `chat/views_admin.py` — added `admin_bulk_delete_messages` view with soft delete (`is_deleted=True`)
+- `chat/urls.py` — added route `admin/api/bulk-delete-messages/`
+- `chat/templates/chat/admin/messages.html` — added checkboxes per message, select-all checkbox, delete button, and JavaScript AJAX handler with CSRF protection
+
+### 13.2 PhotoSwap Queue Button Fix
+
+**Problem**: Clicking Approve/Reject buttons in admin PhotoSwap queue displayed raw JSON output instead of processing the action.
+
+**Fix**: Intercepted form submissions with JavaScript AJAX, then reload the page on success.
+
+**Files changed**:
+- `chat/templates/chat/admin/photo_swap_queue.html` — added AJAX form interception for `.ps-approve-form` and `.ps-reject-form`
+
+---
+
+## 14. PhotoSwap System Improvements
+
+### 14.1 Pending State UI
+
+**Problem**: After sending a PhotoSwap, the sender saw a confusing "Verifying media..." message with no visual feedback.
+
+**Fix**: Added a CSS spinner animation and clearer text: "System review, please wait" / "Loading".
+
+**Files changed**:
+- `chat/templates/chat/conversation.html` — added `.swap-loader` CSS spinner, updated template and `renderPhotoSwapLockedHtml()` for `pending` status
+
+### 14.2 Rejected State UI
+
+**Problem**: Rejected PhotoSwap showed unclear or poorly worded status text.
+
+**Fix**: Updated text to "Does not meet requirements" / "System review: media does not meet requirements".
+
+**Files changed**:
+- `chat/templates/chat/conversation.html` — updated template and `renderPhotoSwapLockedHtml()` for `rejected` status
+
+### 14.3 Sender's Own PhotoSwap Blurring
+
+**Problem**: The sender could see their own PhotoSwap media immediately after sending, defeating the mutual unlock concept.
+
+**Fix**: Modified locking logic so everyone (sender and receiver) sees a locked/blurred card until admin approval.
+
+- `pending` → locked with "System review, please wait"
+- `rejected` → locked with "Does not meet requirements"
+- `active` → locked for sender ("PhotoSwap sent / Waiting for response"), clickable for receiver ("PhotoSwap Active / Tap to respond")
+- `approved` → unlocked for everyone
+
+**Files changed**:
+- `chat/views_chat.py` — `is_photo_swap_locked_for()` now returns `True` for sender too until `approved`
+- `chat/templates/chat/conversation.html` — added `data-is-sender` attribute, differentiated text for sender vs receiver, restricted cursor/hover to receiver's active cards, prevented sender from clicking their own active card
+
+---
+
+## 15. View-Once Fix for Sender
+
+**Problem**: The sender could still see their own view-once media after sending it, even though the receiver could only view it once. This leaked the media URL in page source and defeated the one-time access promise.
+
+**Fix**: Enforced strict one-time access for **both** sender and receiver.
+
+**Backend changes**:
+- `chat/views_chat.py` — `chat_conversation` now sets `attachment_url = None` for unconsumed view-once messages
+- `chat/views_chat.py` — `get_messages` API withholds attachment URL until consumed
+- `chat/views_chat.py` — `consume_view_once_media` removed the sender exception; sender must now consume like anyone else. Returns the protected URL on success. Returns 403 if already consumed.
+
+**Frontend changes**:
+- `chat/templates/chat/conversation.html` — `renderViewOnceCardHtml()` no longer leaks the URL in `data-media-url`
+- `chat/templates/chat/conversation.html` — click handler now calls consume API first, receives the URL, then opens the viewer. If already viewed, shows an error.
+- `chat/templates/chat/conversation.html` — removed old consume-on-close behavior from media viewer
+
+**Result**: Neither sender nor receiver can inspect the page source to find the media URL. Both get exactly one view. Admins/superusers can still bypass.
+
+---
+
 *Generated for project at `c:\Users\Arvin\Desktop\myproject`*

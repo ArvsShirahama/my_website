@@ -249,10 +249,14 @@ def admin_bulk_delete_messages(request):
     """Bulk delete messages (soft delete)."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
-    ids = request.POST.getlist('message_ids[]') or request.POST.getlist('message_ids')
-    if not ids:
-        body = json.loads(request.body.decode('utf-8')) if request.body else {}
-        ids = body.get('message_ids', [])
+    if request.content_type == 'application/json':
+        try:
+            body = json.loads(request.body.decode('utf-8')) if request.body else {}
+            ids = body.get('message_ids', [])
+        except Exception:
+            ids = []
+    else:
+        ids = request.POST.getlist('message_ids[]') or request.POST.getlist('message_ids')
     if not ids:
         return JsonResponse({'error': 'No messages selected'}, status=400)
     deleted = 0

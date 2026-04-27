@@ -27,8 +27,10 @@ def register_view(request):
             return render(request, 'chat/register.html', {'errors': errors, 'data': request.POST})
         
         user = User.objects.create_user(username=username, email=email, password=password)
-        UserProfile.objects.create(user=user)
-        login(request, user)
+        UserProfile.objects.get_or_create(user=user)
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
         return redirect('chat_list')
     
     return render(request, 'chat/register.html')
