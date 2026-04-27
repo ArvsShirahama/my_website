@@ -977,7 +977,9 @@ function renderViewOnceCardHtml(msgId, url, type, isConsumed) {
     const icon = type === 'video' ? '🎬' : '📷';
     const title = isConsumed ? 'Viewed' : 'View Once';
     const sub = isConsumed ? 'Expired' : 'Tap to view';
-    return `<div class="view-once-card ${isConsumed ? 'consumed' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-url="${escapeHtml(url || '')}" data-media-type="${escapeHtml(type || 'image')}" data-consumed="${isConsumed ? '1' : '0'}"><div class="vo-icon">${icon}</div><div><div class="vo-title">${title}</div><div class="vo-sub">${sub}</div></div></div>`;
+    // Never leak the URL in the DOM for unconsumed view-once cards
+    const safeUrl = isConsumed ? '' : '';
+    return `<div class="view-once-card ${isConsumed ? 'consumed' : ''}" data-msg-id="${escapeHtml(msgId || '')}" data-media-url="${safeUrl}" data-media-type="${escapeHtml(type || 'image')}" data-consumed="${isConsumed ? '1' : '0'}"><div class="vo-icon">${icon}</div><div><div class="vo-title">${title}</div><div class="vo-sub">${sub}</div></div></div>`;
 }
 
 function markViewOnceCardConsumed(messageId) {
@@ -1754,23 +1756,7 @@ function triggerMediaDownload() {
     a.click();
 }
 
-async function closeMediaViewerAndConsumeIfNeeded() {
-    const shouldConsume = currentViewerIsViewOnce && currentViewOnceMessageId && !canBypassViewOnce;
-    if (shouldConsume) {
-        try {
-            const response = await fetch('/chat/api/view-once/consume/' + currentViewOnceMessageId + '/', {
-                method: 'POST',
-                headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
-            });
-            const data = await response.json();
-            if (data.success && data.consumed) {
-                markViewOnceCardConsumed(currentViewOnceMessageId);
-            }
-        } catch (err) {
-            console.error('View-once consume failed:', err);
-        }
-    }
-
+function closeMediaViewer() {
     mediaViewerContent.innerHTML = '';
     mediaViewer.classList.remove('active');
     teardownCustomVideoViewer();
@@ -1779,14 +1765,14 @@ async function closeMediaViewerAndConsumeIfNeeded() {
     currentViewerIsViewOnce = false;
 }
 
-mediaViewerClose.addEventListener('click', closeMediaViewerAndConsumeIfNeeded);
+mediaViewerClose.addEventListener('click', closeMediaViewer);
 
 mediaViewer.addEventListener('click', (e) => {
     if (!e.target.closest('.media-video-menu-wrap') && mediaVideoMenu.classList.contains('active')) {
         mediaVideoMenu.classList.remove('active');
     }
     if (e.target === mediaViewer) {
-        closeMediaViewerAndConsumeIfNeeded();
+        closeMediaViewer();
     }
 });
 
@@ -1796,7 +1782,7 @@ mediaViewerDownload.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && mediaViewer.classList.contains('active')) {
-        closeMediaViewerAndConsumeIfNeeded();
+        closeMediaViewer();
     }
 });
 
@@ -1929,11 +1915,26 @@ messagesArea.addEventListener('click', (e) => {
         const msgId = viewOnceEl.dataset.msgId;
         const consumed = viewOnceEl.dataset.consumed === '1';
         if (consumed && !canBypassViewOnce) return;
-        const url = viewOnceEl.dataset.mediaUrl;
         const type = viewOnceEl.dataset.mediaType;
-        if (url && type) {
-            openMediaViewer(url, type, { messageId: msgId, isViewOnce: true });
-        }
+        if (!msgId || !type) return;
+        // Consume first, then view — never leak the URL in the DOM
+        fetch('/chat/api/view-once/consume/' + msgId + '/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && (data.consumed || data.bypassed) && data.url) {
+                openMediaViewer(data.url, type, { messageId: msgId, isViewOnce: true });
+                if (data.consumed) markViewOnceCardConsumed(msgId);
+            } else {
+                alert(data.error || 'Unable to view media');
+            }
+        })
+        .catch(err => {
+            console.error('View-once consume failed:', err);
+            alert('Failed to load media');
+        });
         return;
     }
 

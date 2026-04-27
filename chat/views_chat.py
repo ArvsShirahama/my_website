@@ -86,7 +86,11 @@ def chat_conversation(request, conversation_id):
     for msg in messages:
         msg.is_consumed_for_user = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=user.id).exists()
         msg.is_swap_locked_for_user = is_photo_swap_locked_for(msg, user)
-        msg.attachment_url = _attachment_url(msg.attachment)
+        # Don't expose attachment URL for unconsumed view-once messages
+        if msg.is_view_once and not bypass and not msg.view_once_consumed_by.filter(id=user.id).exists():
+            msg.attachment_url = None
+        else:
+            msg.attachment_url = _attachment_url(msg.attachment)
         msg.photo_swap_status_display = msg.get_photo_swap_status_display()
 
     theme = ConversationTheme.objects.filter(user=user, conversation=conversation).first()
@@ -260,11 +264,12 @@ def get_messages(request, conversation_id):
     for msg in messages:
         consumed = msg.is_view_once and not bypass and msg.view_once_consumed_by.filter(id=request.user.id).exists()
         swap_locked = is_photo_swap_locked_for(msg, request.user)
+        is_unconsumed_view_once = msg.is_view_once and not bypass and not msg.view_once_consumed_by.filter(id=request.user.id).exists()
         attachment_data = None
         if msg.attachment:
             attachment_data = {
                 'type': msg.attachment.attachment_type,
-                'url': None if (consumed or swap_locked) else _attachment_url(msg.attachment),
+                'url': None if (is_unconsumed_view_once or swap_locked) else _attachment_url(msg.attachment),
             }
         data.append({'id': str(msg.id), 'text': msg.text, 'sender': msg.sender.username,
                      'is_me': msg.sender == request.user, 'created_at': msg.created_at.isoformat(),
@@ -315,15 +320,16 @@ def consume_view_once_media(request, message_id):
     if not message.is_view_once or not message.attachment:
         return JsonResponse({'success': False, 'error': 'Not a view-once media message'}, status=400)
 
-    if message.sender == user:
-        # Sender previewing their own message must not be marked as a consumer.
-        return JsonResponse({'success': True, 'consumed': False, 'is_sender': True})
+    bypass = can_bypass_view_once(user)
+    if bypass:
+        return JsonResponse({'success': True, 'consumed': False, 'bypassed': True, 'url': _attachment_url(message.attachment)})
 
-    if can_bypass_view_once(user):
-        return JsonResponse({'success': True, 'consumed': False, 'bypassed': True})
+    already_consumed = message.view_once_consumed_by.filter(id=user.id).exists()
+    if already_consumed:
+        return JsonResponse({'success': False, 'error': 'Already viewed'}, status=403)
 
     message.view_once_consumed_by.add(user)
-    return JsonResponse({'success': True, 'consumed': True, 'bypassed': False})
+    return JsonResponse({'success': True, 'consumed': True, 'bypassed': False, 'url': _attachment_url(message.attachment)})
 
 
 @login_required
