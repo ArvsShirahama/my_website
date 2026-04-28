@@ -24,8 +24,7 @@ urlpatterns = [
     path('api/theme/<uuid:conversation_id>/', views_chat.get_conversation_theme, name='get_conversation_theme'),
     path('api/theme/<uuid:conversation_id>/set/', views_chat.set_conversation_theme, name='set_conversation_theme'),
     path('api/theme/<uuid:conversation_id>/reset/', views_chat.reset_conversation_theme, name='reset_conversation_theme'),
-    path('api/storage-check/', views_chat.storage_check, name='storage_check'),
-
+    
     # Admin Dashboard
     path('admin/dashboard/', views_admin.admin_dashboard, name='admin_dashboard'),
     path('admin/users/', views_admin.admin_users, name='admin_users'),

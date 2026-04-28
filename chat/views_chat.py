@@ -460,19 +460,6 @@ def reset_conversation_theme(request, conversation_id):
     return JsonResponse({'success': True, 'theme': serialize_theme(None)})
 
 
-@login_required
-def storage_check(request):
-    """Temporary diagnostic: verify storage backend and env vars."""
-    from django.conf import settings
-    from django.core.files.storage import default_storage
-    return JsonResponse({
-        'cloud_name': getattr(settings, 'CLOUDINARY_CLOUD_NAME', 'NOT SET'),
-        'default_storage': str(default_storage.__class__),
-        'media_url': settings.MEDIA_URL,
-        'media_root': str(getattr(settings, 'MEDIA_ROOT', 'NOT SET')),
-    })
-
-
 # ========== Protected Media Serving ==========
 
 @login_required
