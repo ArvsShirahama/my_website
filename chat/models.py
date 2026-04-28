@@ -201,4 +201,35 @@ class AdminLog(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.admin_user.username} - {self.action_type} at {self.created_at}"
+        return f"{self.admin_user.username}: {self.action_type} at {self.created_at}"
+
+
+class AdminDocument(models.Model):
+    """Documents uploaded by admins for reference or distribution."""
+    FILE_TYPES = [
+        ('image', 'Image'),
+        ('pdf', 'PDF'),
+        ('document', 'Document'),
+        ('spreadsheet', 'Spreadsheet'),
+        ('presentation', 'Presentation'),
+        ('text', 'Text'),
+        ('other', 'Other'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    file = models.FileField(upload_to='admin_documents/%Y/%m/%d/')
+    file_type = models.CharField(max_length=15, choices=FILE_TYPES, default='other')
+    mime_type = models.CharField(max_length=100, blank=True)
+    file_size = models.PositiveIntegerField(default=0)
+    filename = models.CharField(max_length=255, blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='admin_documents')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'chat_admin_document'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} ({self.filename})"

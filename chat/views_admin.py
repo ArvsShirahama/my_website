@@ -1,7 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.models import User
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse, HttpResponseForbidden
+import os
 from django.utils import timezone
 from django.db.models import Count, Q
 from datetime import timedelta
@@ -9,7 +10,7 @@ from django.core.paginator import Paginator
 import json
 from django.urls import reverse
 
-from .models import UserProfile, Conversation, Message, AdminLog
+from .models import UserProfile, Conversation, Message, AdminLog, AdminDocument
 
 
 # ========== RBAC Helpers ==========
@@ -515,3 +516,123 @@ def admin_logs(request):
     """Admin action logs"""
     logs = AdminLog.objects.select_related('admin_user', 'target_user').order_by('-created_at')[:100]
     return render(request, 'chat/admin/logs.html', {'logs': logs, 'is_admin': is_admin_only(request.user)})
+
+
+# ========== Admin Documents ==========
+
+ALLOWED_DOC_EXTS = {
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp',
+    'pdf',
+    'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+    'txt', 'csv', 'zip', 'rar', '7z',
+    'mp4', 'webm', 'avi', 'mov',
+}
+
+MIME_MAP = {
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png',
+    'gif': 'image/gif', 'webp': 'image/webp', 'bmp': 'image/bmp',
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'txt': 'text/plain',
+    'csv': 'text/csv',
+    'zip': 'application/zip',
+    'rar': 'application/x-rar-compressed',
+    '7z': 'application/x-7z-compressed',
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'avi': 'video/x-msvideo',
+    'mov': 'video/quicktime',
+}
+
+
+def _doc_file_type(ext):
+    ext = ext.lower().lstrip('.')
+    if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'):
+        return 'image'
+    if ext == 'pdf':
+        return 'pdf'
+    if ext in ('doc', 'docx'):
+        return 'document'
+    if ext in ('xls', 'xlsx'):
+        return 'spreadsheet'
+    if ext in ('ppt', 'pptx'):
+        return 'presentation'
+    if ext in ('txt', 'csv'):
+        return 'text'
+    if ext in ('mp4', 'webm', 'avi', 'mov'):
+        return 'video'
+    return 'other'
+
+
+@login_required
+@user_passes_test(is_staff_or_admin, login_url='chat_list')
+def admin_documents(request):
+    """Admin document library: upload, list, and view documents."""
+    if request.method == 'POST' and 'file' in request.FILES:
+        uploaded = request.FILES['file']
+        title = request.POST.get('title', '').strip() or uploaded.name
+        description = request.POST.get('description', '').strip()
+        ext = os.path.splitext(uploaded.name)[1].lower().lstrip('.')
+        if ext not in ALLOWED_DOC_EXTS:
+            return JsonResponse({'error': f'File type .{ext} not allowed.'}, status=400)
+
+        mime = MIME_MAP.get(ext, uploaded.content_type or 'application/octet-stream')
+        doc = AdminDocument.objects.create(
+            title=title,
+            description=description,
+            file=uploaded,
+            filename=uploaded.name,
+            file_size=uploaded.size,
+            file_type=_doc_file_type(ext),
+            mime_type=mime,
+            uploaded_by=request.user,
+        )
+        return JsonResponse({
+            'success': True,
+            'id': str(doc.id),
+            'title': doc.title,
+            'filename': doc.filename,
+            'url': reverse('admin_serve_document', args=[doc.id]),
+        })
+
+    docs = AdminDocument.objects.select_related('uploaded_by').order_by('-created_at')
+    paginator = Paginator(docs, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'chat/admin/documents.html', {
+        'documents': page_obj,
+        'is_admin': is_admin_only(request.user),
+    })
+
+
+@login_required
+@user_passes_test(is_staff_or_admin, login_url='chat_list')
+def admin_serve_document(request, doc_id):
+    """Serve an uploaded admin document (images inline, others as download)."""
+    doc = get_object_or_404(AdminDocument, id=doc_id)
+    file_path = doc.file.path
+    if not os.path.exists(file_path):
+        return HttpResponseForbidden("File not found")
+
+    mime = doc.mime_type or 'application/octet-stream'
+    disposition = 'inline' if doc.file_type == 'image' else 'attachment'
+    response = FileResponse(open(file_path, 'rb'), content_type=mime)
+    response['Content-Disposition'] = f'{disposition}; filename="{doc.filename}"'
+    return response
+
+
+@login_required
+@user_passes_test(is_admin_only, login_url='chat_list')
+def admin_delete_document(request, doc_id):
+    """Delete an admin document."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    doc = get_object_or_404(AdminDocument, id=doc_id)
+    doc.file.delete(save=False)
+    doc.delete()
+    return JsonResponse({'success': True, 'message': 'Document deleted'})

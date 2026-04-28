@@ -1,0 +1,106 @@
+{% extends 'chat/base.html' %}
+{% block title %}Admin - Documents{% endblock %}
+{% block content %}
+<div style="max-width:900px;margin:0 auto;">
+  <div class="app-bar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <a href="{% url 'admin_dashboard' %}" class="back-btn">&#8592;</a>
+      <h1>Document Library</h1>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">&#9788;</button>
+  </div>
+  <div class="container" style="padding-top:24px;">
+    <!-- Upload -->
+    <div class="card" style="padding:16px;margin-bottom:24px;">
+      <h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Upload Document</h3>
+      <form id="upForm" method="post" enctype="multipart/form-data" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+        {% csrf_token %}
+        <div style="flex:1;min-width:180px;">
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">File</label>
+          <input type="file" name="file" id="fileInp" required style="padding:8px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;width:100%;">
+        </div>
+        <div style="flex:1;min-width:180px;">
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Title</label>
+          <input type="text" name="title" placeholder="Title..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;width:100%;">
+        </div>
+        <div style="flex:2;min-width:200px;">
+          <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Description</label>
+          <input type="text" name="description" placeholder="Short description..." style="padding:8px 12px;border-radius:8px;border:1px solid var(--border-light);background:var(--surface);color:var(--text-primary);font-size:14px;width:100%;">
+        </div>
+        <button type="submit" class="btn btn-primary" id="upBtn" style="padding:8px 20px;">Upload</button>
+      </form>
+      <div id="upStatus" style="margin-top:8px;font-size:13px;"></div>
+      <p style="font-size:11px;color:var(--text-secondary);margin-top:8px;">Allowed: JPG, PNG, GIF, WEBP, BMP, PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, CSV, ZIP, RAR, 7Z, MP4, WEBM, AVI, MOV</p>
+    </div>
+    <!-- List -->
+    <div class="card" style="overflow:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:14px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border-light);">
+            <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--text-secondary);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Type</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--text-secondary);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Filename</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--text-secondary);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Title</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--text-secondary);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">By</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:600;color:var(--text-secondary);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Date</th>
+            <th style="padding:12px 16px;text-align:right;font-weight:600;color:var(--text-secondary);font-size:12px;text-transform:uppercase;letter-spacing:0.5px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for doc in documents %}
+          <tr style="border-bottom:1px solid var(--border-light);" id="row-{{ doc.id }}">
+            <td style="padding:12px 16px;text-transform:uppercase;font-size:11px;font-weight:600;color:var(--primary);">{{ doc.file_type }}</td>
+            <td style="padding:12px 16px;">
+              <a href="{% url 'admin_serve_document' doc.id %}" target="_blank" style="color:var(--primary);text-decoration:underline;font-weight:500;">{{ doc.filename }}</a>
+            </td>
+            <td style="padding:12px 16px;color:var(--text-secondary);font-size:13px;">{{ doc.title }}{% if doc.description %}<div style="font-size:11px;margin-top:2px;">{{ doc.description }}</div>{% endif %}</td>
+            <td style="padding:12px 16px;font-size:13px;">{{ doc.uploaded_by.username }}</td>
+            <td style="padding:12px 16px;font-size:12px;color:var(--text-secondary);">{{ doc.created_at|date:"Y-m-d H:i" }}</td>
+            <td style="padding:12px 16px;text-align:right;">
+              {% if is_admin %}<button class="btn btn-danger" style="padding:4px 10px;font-size:12px;" onclick="delDoc('{{ doc.id }}')">Delete</button>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-secondary);">No documents uploaded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if documents.has_other_pages %}
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:16px;">
+      {% if documents.has_previous %}<a href="?page={{ documents.previous_page_number }}" class="btn btn-secondary" style="padding:6px 12px;font-size:13px;">&larr; Prev</a>{% endif %}
+      <span style="padding:6px 12px;font-size:13px;color:var(--text-secondary);">Page {{ documents.number }} of {{ documents.paginator.num_pages }}</span>
+      {% if documents.has_next %}<a href="?page={{ documents.next_page_number }}" class="btn btn-secondary" style="padding:6px 12px;font-size:13px;">Next &rarr;</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+<script>
+  document.getElementById('upForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const status = document.getElementById('upStatus');
+    const btn = document.getElementById('upBtn');
+    btn.disabled = true; btn.textContent = 'Uploading...';
+    status.textContent = '';
+    try {
+      const formData = new FormData(this);
+      const r = await fetch('', {method:'POST',body:formData,headers:{'X-CSRFToken':formData.get('csrfmiddlewaretoken')}});
+      const d = await r.json();
+      if (d.success) { status.style.color = 'var(--success)'; status.textContent = 'Uploaded: ' + d.filename; setTimeout(()=>location.reload(),600); }
+      else { status.style.color = 'var(--danger)'; status.textContent = d.error || 'Upload failed'; }
+    } catch (err) { status.style.color = 'var(--danger)'; status.textContent = 'Error: ' + err.message; }
+    finally { btn.disabled = false; btn.textContent = 'Upload'; }
+  });
+  async function delDoc(id) {
+    if (!confirm('Delete this document?')) return;
+    try {
+      const r = await fetch('/chat/admin/documents/delete/' + id + '/', {
+        method:'POST',
+        headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value,'Content-Type':'application/json'}
+      });
+      const d = await r.json();
+      if (d.success) { document.getElementById('row-' + id).remove(); }
+      else { alert(d.error || 'Delete failed'); }
+    } catch (e) { alert('Error: ' + e.message); }
+  }
+</script>
+{% endblock %}
