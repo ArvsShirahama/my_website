@@ -479,10 +479,6 @@ def serve_attachment(request, attachment_id):
     if not msg:
         return HttpResponseForbidden("Access denied")
 
-    from django.conf import settings
-    if getattr(settings, 'CLOUDINARY_CLOUD_NAME', ''):
-        return redirect(attachment.file.url)
-
     file_path = attachment.file.path
     if not os.path.exists(file_path):
         return HttpResponseForbidden("File not found")
@@ -497,7 +493,4 @@ def _attachment_url(attachment):
     """Return the protected URL for an attachment (or None)."""
     if not attachment:
         return None
-    from django.conf import settings
-    if getattr(settings, 'CLOUDINARY_CLOUD_NAME', ''):
-        return attachment.file.url
     return reverse('serve_attachment', args=[attachment.id])
